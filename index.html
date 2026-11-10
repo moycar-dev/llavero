@@ -288,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.3.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.3.1', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
@@ -298,7 +298,7 @@ const COLS={
   pagos:['inquilinoId','propiedadId','mes','fecha','monto','nota'],
   avisos:['inquilinoId','mes','etapa','fecha'],
   comentarios:['clave','texto','fecha'],
-  mantenimientos:['destino','motivo','fecha','horario','servicios','costo','estado','avisados','restablecido','nota'],
+  mantenimientos:['destino','motivo','fecha','horario','servicios','costo','proveedor','telProveedor','estado','avisados','restablecido','nota'],
   inventario:['propiedadId','nombre','descripcion','estado','fechaRetiro','motivoRetiro'],
   revisiones:['inquilinoId','propiedadId','fecha','resultado','nota']
 };
@@ -403,9 +403,8 @@ function prop(id){return get('propiedades',id)}
 function activos(){return list('inquilinos').filter(t=>t.estado==='activo'&&prop(t.propiedadId))}
 function inqDe(pid){return list('inquilinos').find(t=>t.propiedadId===pid&&t.estado==='activo')}
 function hasServ(p,s){return String(p.servicios||'luz,agua,gas').split(',').includes(s)}
-function isOwner(){return DEMO||!S.conn||S.rol==='propietario'||S.rol==='admin'}
-function isAdmin(){return !DEMO&&!!S.conn&&S.rol==='admin'}
-/* WhatsApp: solo propietario y administrador */
+function isOwner(){return DEMO||!S.conn||S.rol==='propietario'}
+/* WhatsApp a inquilinos: solo el propietario */
 function canWA(){return isOwner()}
 function canEdit(c,r){if(isOwner())return true;return['gastos','pagos','avisos','mantenimientos','inventario'].includes(c)&&(!r||r.por===S.device||!r.por)}
 function cfg(){const c=S.config||{};return{negocio:c.negocio||'',propietario:c.propietario||'',telPropietario:c.telPropietario||'',plantillas:Object.assign({},DEF_PLANT,c.plantillas||{}),v:c.v||1,updatedAt:c.updatedAt||0}}
@@ -501,8 +500,6 @@ async function sync(manual){
   const cfgSent=S.configDirty;
   const body={action:'push',key:S.conn.k,device:S.device,deviceName:S.deviceName||'Sin nombre',ops};
   if(cfgSent&&isOwner())body.config=cfg();
-  if(isAdmin()&&S.dispOps&&S.dispOps.length)body.dispOps=S.dispOps.slice(0,10);
-  const dsent=body.dispOps?body.dispOps.length:0;
   try{
     const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),30000);
     const res=await fetch(S.conn.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl.signal,redirect:'follow',credentials:'omit'});
@@ -515,7 +512,7 @@ async function sync(manual){
       for(const k of S.pend){const i=k.indexOf(':'),c=k.slice(0,i),id=k.slice(i+1);const loc=S.data[c][id];
         if(k in sent&&(!loc||loc.updatedAt===sent[k]))continue;
         if(loc){nd[c][id]=loc;keep.push(k)}}
-      S.data=nd;S.pend=keep;S.rol=j.rol;S.disp=j.rol==='admin'?(j.dispositivos||[]):null;if(dsent)S.dispOps=S.dispOps.slice(dsent);
+      S.data=nd;S.pend=keep;S.rol=j.rol;
       if(S.configDirty===cfgSent){S.configDirty=0;if(j.config)S.config=j.config}
       S.lastSync=Date.now();S.status='ok';S.err=null;
       if(j.rejected&&j.rejected.length&&manual!==false)toast('Algunos cambios no se permitieron con tu tipo de acceso',null,true);
@@ -741,6 +738,8 @@ FLOWS.mant={
       <div class="two"><div><label class="f" for="ffecha">Día</label><input class="inp" type="date" id="ffecha" value="${esc(m.fecha||today())}"></div><div><label class="f" for="fhor">Horario (opcional)</label><input class="inp" id="fhor" maxlength="50" placeholder="de 10 a 2 pm" value="${esc(m.horario||'')}"></div></div>
       <label class="f">¿Qué servicios se cortan?</label>${msvSeg()}<p class="hint">Si no se corta ninguno, déjalos sin marcar.</p>
       <label class="f" for="fcosto">Costo (opcional)</label><div class="money"><span>$</span><input id="fcosto" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(m.costo===''||m.costo==null?'':m.costo)}"></div>
+      <label class="f" for="fprov">¿Quién hace el servicio? (opcional)</label><input class="inp" id="fprov" maxlength="80" placeholder="Nombre de la persona o empresa" value="${esc(m.proveedor||'')}">
+      <label class="f" for="ftelp">Su teléfono (opcional)</label><input class="inp" id="ftelp" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${esc(m.telProveedor||'')}"><p class="hint">Sirve para pedirle garantía después.</p>
       <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(m.nota||'')}">
       <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="m-save">${I.check} Guardar</button>`);
   },
@@ -752,6 +751,7 @@ FLOWS.mant={
     const paso=!canWA()?(hecho?['okk',I.check,'Terminado.']:['',1,'Cuando terminen el trabajo, toca «Ya se terminó». El propietario avisa a los inquilinos.']):hecho?['okk',I.check,'Terminado. Si quieres, avisa a los inquilinos que ya quedó.']:!ts.length?['',2,'No hay inquilinos que avisar. Cuando terminen, toca «Ya se terminó».']:nAv<ts.length?['',1,'Siguiente paso: avisa a los inquilinos'+(ts.length>1?' ('+nAv+' de '+ts.length+' avisados).':'.')]:['okk',2,'Todos avisados. Cuando terminen el trabajo, toca «Ya se terminó».'];
     let h=shead(esc(m.motivo),`<span class="chip off">${esc(mantNombre(m))}</span><span class="chip ${hecho?'ok':'warn'}">${hecho?'Terminado':'Pendiente'}</span>`)+`<div class="next ${paso[0]}"><span class="n">${paso[1]}</span><span>${paso[2]}</span></div>`;
     h+=`<div class="box"><div class="muted">${fechaLarga(m.fecha)} ${String(m.fecha).slice(0,4)}${m.horario?' · '+esc(m.horario):''}</div><div class="ps" style="margin-top:8px">${sv.length?sv.map(servBadge).join(''):'<span class="chip off">No se corta ningún servicio</span>'}</div>${m.costo!==''&&m.costo!=null?`<div class="sep" style="height:10px"></div><div class="muted">Costo</div><div class="kpi" style="font-size:28px">${money(m.costo)}</div>`:''}${m.nota?`<p class="muted small">${esc(m.nota)}</p>`:''}</div>`;
+    if(m.proveedor||m.telProveedor)h+=`<div class="box"><h3>Quién hizo el servicio</h3><div class="muted"><b>${esc(m.proveedor||'Sin nombre')}</b>${m.telProveedor?' · '+esc(m.telProveedor):''}</div>${m.telProveedor?`<div class="sep" style="height:10px"></div><div class="row"><a class="btn sm" href="tel:+52${esc(m.telProveedor)}">Llamar</a>${canWA()?`<a class="btn sm wa" href="${waUrl('52'+m.telProveedor,'')}" target="_blank" rel="noopener">${I.chat} WhatsApp</a>`:''}</div>`:'<p class="hint">Falta su teléfono. Agrégalo con «Corregir».</p>'}</div>`;
     if(canWA())h+=`<div class="box"><h3>Avisar a los inquilinos</h3>`+(ts.length?`<p class="muted small">Se abre WhatsApp con el mensaje listo; tú solo das enviar, uno por uno.</p><div class="waprev">${esc(mensajeMant(ts[0],m,false))}</div>`+ts.map(t=>fila(t,false)).join(''):'<p class="muted">Ahora no hay inquilinos en este lugar.</p>')+'</div>';
     if(canWA()&&hecho&&ts.length)h+=`<div class="box"><h3>Avisar que ya terminó</h3>`+ts.map(t=>fila(t,true)).join('')+'</div>';
     if(!hecho)h+=`<button class="btn pri big full" data-a="m-done">${I.check} Ya se terminó</button><div class="sep"></div>`;
@@ -779,7 +779,7 @@ FLOWS.inv={
   },
   ret(){
     const i=get('inventario',F.id),p=prop(F.pid)||{};
-    sheet(shead('¿Retirar '+esc(i.nombre)+'?')+`<p class="muted">Se quita del inventario de ${esc(p.nombre||'la propiedad')}. ${isOwner()?'':'El propietario verá el cambio en la propiedad.'}</p><label class="f" for="fmot">¿Por qué o a dónde se lleva? (opcional)</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Se lo lleva el inquilino"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="inv-retok">Sí, retirar</button>`);
+    sheet(shead('¿Retirar '+esc(i.nombre)+'?')+`<p class="muted">Se quita del inventario de ${esc(p.nombre||'la propiedad')}. ${isOwner()?'':'Después te dejo listo un WhatsApp para avisar al propietario.'}</p><label class="f" for="fmot">¿Por qué o a dónde se lleva? (opcional)</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Se lo lleva el inquilino"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="inv-retok">Sí, retirar</button>`);
   },
   aviso(){
     const i=get('inventario',F.id)||{},c=cfg();
@@ -886,8 +886,9 @@ const ACT={
     const motivo=val('fmot');if(motivo.length<3)return showErr('Escribe el motivo del mantenimiento.');
     const fecha=val('ffecha');if(!fecha)return showErr('Elige el día.');
     const cs=val('fcosto');let costo='';if(cs){const n=num(cs);if(!(n>=0)||n>10000000)return showErr('El costo no es válido.');costo=Math.round(n*100)/100}
+    const tp=val('ftelp').replace(/\D/g,'');if(tp&&!telWa(tp))return showErr('El teléfono debe tener 10 dígitos.');
     const base=F.id?get('mantenimientos',F.id):{id:uid(),estado:'programado',avisados:'',restablecido:''};
-    const r=Object.assign({},base,{destino:F.destino,motivo,fecha,horario:val('fhor'),servicios:Object.keys(SERV).filter(s=>F.msv.includes(s)).join(','),costo,nota:val('fnota')});
+    const r=Object.assign({},base,{destino:F.destino,motivo,fecha,horario:val('fhor'),servicios:Object.keys(SERV).filter(s=>F.msv.includes(s)).join(','),costo,proveedor:val('fprov'),telProveedor:tp?telWa(tp).slice(2):'',nota:val('fnota')});
     const nuevo=!F.id;commit([{c:'mantenimientos',r}],nuevo?'Mantenimiento guardado':'Cambios guardados');
     F={flow:'mant',hist:[],id:r.id,step:'det',destino:r.destino,msv:mantSv(r)};FLOWS.mant.det()},
   'm-edit'(){F.hist=['det'];F.step='form';FLOWS.mant.form()},
@@ -913,8 +914,8 @@ const ACT={
   'inv-ret'(){go('ret')},
   'inv-retok'(){const i=get('inventario',F.id);if(!i)return closeSheet();const r=Object.assign({},i,{estado:'retirado',fechaRetiro:today(),motivoRetiro:val('fmot')});const pid=F.pid;
     commit([{c:'inventario',r}],i.nombre+' retirado del inventario');
-    volverProp(pid)},
-  'inv-wa'(){if(!canWA())return;const i=get('inventario',F.id);if(i)window.open(waUrl(telWa(cfg().telPropietario),mensajeInv(i)),'_blank','noopener')},
+    if(isOwner())volverProp(pid);else{F={flow:'inv',hist:[],pid,id:i.id,step:'aviso'};FLOWS.inv.aviso()}},
+  'inv-wa'(){const i=get('inventario',F.id);if(i)window.open(waUrl(telWa(cfg().telPropietario),mensajeInv(i)),'_blank','noopener')},
   'inv-back'(){const i=get('inventario',F.id);if(!i)return;const pid=F.pid;commit([{c:'inventario',r:Object.assign({},i,{estado:'en',fechaRetiro:'',motivoRetiro:''})}],i.nombre+' volvió al inventario');volverProp(pid)},
   'inv-del'(){go('del')},
   'inv-delok'(){const i=get('inventario',F.id);const pid=F.pid;if(i)commit([{c:'inventario',r:Object.assign({},i,{eliminado:1})}],'Artículo borrado');volverProp(pid)},
@@ -966,9 +967,6 @@ const ACT={
   'aj-link'(){compartirEnlace()},
   'aj-off'(){F={flow:'aj',hist:['x']};sheet(shead('¿Desconectar este teléfono?')+'<p class="muted">Se borran los datos guardados en este teléfono. En la hoja de Google no se borra nada.</p><button class="btn danger big full" data-a="aj-offok">Sí, desconectar</button>')},
   'aj-offok'(){const dev=S.device;S=blank();S.device=dev;save();closeSheet();render();toast('Teléfono desconectado')},
-  'dv-ok'(d){dvOp(d.id,{autorizado:true})},
-  'dv-no'(d){dvOp(d.id,{autorizado:false})},
-  'dv-rol'(d){dvOp(d.id,{rol:d.r})},
   'aj-plant'(){F={flow:'aj',hist:['x']};plantillas()},
   'pl-save'(){const c=cfg();const pl={};for(const k of Object.keys(DEF_PLANT)){const v=val('pl_'+k);pl[k]=v||DEF_PLANT[k]}
     S.config=Object.assign({},c,{telPropietario:val('pl_tel').replace(/\D/g,'').slice(-10),propietario:val('pl_prop').slice(0,60),negocio:val('pl_neg').slice(0,80),plantillas:pl,updatedAt:Date.now()});S.configDirty++;save();closeSheet();render();schedule(1000);toast('Mensajes guardados')},
@@ -1225,23 +1223,6 @@ function detalleTabla(m){
   return h+'</table>';
 }
 
-/* Administrador: gestionar teléfonos (solo rol admin; el servidor lo vuelve a validar) */
-function dvOp(id,ch){S.dispOps=(S.dispOps||[]).concat([Object.assign({device:id},ch)]);const x=(S.disp||[]).find(v=>v.id===id);if(x)Object.assign(x,ch);save();ajustes();sync(false)}
-function panelDisp(){
-  const L=S.disp||[];
-  let h=`<div class="box"><h3>Teléfonos conectados</h3><p class="muted small">Aprueba o quita teléfonos y cambia su tipo de acceso. El rol de administrador solo se asigna directamente en la hoja.</p>`;
-  if(!L.length)h+='<p class="muted">Aún no hay teléfonos registrados.</p>';
-  for(const v of L){
-    const adm=v.rol==='admin';
-    h+=`<div class="tn"><span class="it"><b>${esc(v.nombre||'Sin nombre')}${v.yo?' (este teléfono)':''}</b><span>${adm?'Administrador':v.autorizado?(v.rol==='propietario'?'Propietario':'Capturista'):'Esperando aprobación'}</span></span>`;
-    if(!adm&&!v.yo){
-      h+=v.autorizado?`<button class="btn sm" data-a="dv-rol" data-id="${esc(v.id)}" data-r="${v.rol==='propietario'?'capturista':'propietario'}">${v.rol==='propietario'?'Pasar a capturista':'Pasar a propietario'}</button><button class="btn sm" data-a="dv-no" data-id="${esc(v.id)}" style="color:var(--rojo)">Quitar</button>`:`<button class="btn sm pri" data-a="dv-ok" data-id="${esc(v.id)}">Aprobar</button>`;
-    }
-    h+='</div>';
-  }
-  return h+'</div>';
-}
-
 /* Ajustes */
 function ajustes(){
   const own=isOwner(),c=cfg();
@@ -1249,10 +1230,9 @@ function ajustes(){
   h+=`<div class="box"><h3>Tu nombre</h3><input class="inp" id="fname" maxlength="40" value="${esc(S.deviceName)}" placeholder="Ej. Carlos"><div class="sep" style="height:10px"></div><button class="btn full" data-a="aj-name">${I.check} Guardar nombre</button></div>`;
   h+=`<div class="box"><h3>Conexión</h3>`;
   if(DEMO)h+='<p class="muted">Estás en modo demostración. Abre la app sin "?demo" para conectarla a una hoja real.</p>';
-  else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='admin'?'Administrador':S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${isOwner()&&S.conn?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
+  else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${isOwner()&&S.conn?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
   else h+=`<p class="muted">Pide al propietario el enlace de conexión y ábrelo en este teléfono.</p><details class="more"><summary class="btn sm">Conectar a mano</summary><label class="f" for="furl">Dirección de la hoja (/exec)</label><input class="inp" id="furl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"><label class="f" for="fkey">Clave</label><input class="inp" id="fkey" type="password" autocomplete="off"><label class="f" for="fname2">Tu nombre</label><input class="inp" id="fname2" maxlength="40" value="${esc(S.deviceName)}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri full" data-a="aj-manual">Conectar</button></details>`;
   h+='</div>';
-  if(isAdmin())h+=panelDisp();
   if(own){
     h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto de los recordatorios de 15, 10 y 3 días.</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
     h+=`<div class="box"><h3>Descargar en Excel (CSV)</h3><div class="row"><button class="btn sm" data-a="aj-csv" data-c="gastos">${I.download} Recibos</button><button class="btn sm" data-a="aj-csv" data-c="pagos">${I.download} Pagos</button><button class="btn sm" data-a="aj-csv" data-c="inquilinos">${I.download} Inquilinos</button></div></div>`;
@@ -1342,8 +1322,8 @@ function demoState(){
       const id='g'+j+s+(i+10);st.data.gastos[id]=mk({id,propiedadId:p[0],servicio:s,mes:m,monto:Math.round(v/10)*10,nota:''})}})}
   for(const t of T){const p=P.find(x=>x[0]===t[1]);for(let i=-6;i<=0;i++){const m=addMonths(M,i);const due=dueDate(m,p[4]);if(due<t[4])continue;if(due>hoy)continue;if(t[0]==='t1'&&i===0)continue;
     const id='y'+t[0]+(i+10);st.data.pagos[id]=mk({id,inquilinoId:t[0],propiedadId:t[1],mes:m,fecha:due,monto:p[3],nota:''})}}
-  st.data.mantenimientos.m1=mk({id:'m1',destino:'e:e1',motivo:'Reparación del tinaco en la azotea',fecha:addDays(hoy,1),horario:'de 10 a 2 pm',servicios:'agua',costo:1800,estado:'programado',avisados:'',restablecido:'',nota:''});
-  st.data.mantenimientos.m2=mk({id:'m2',destino:'p:p4',motivo:'Cambio de boiler',fecha:addDays(hoy,-20),horario:'',servicios:'gas',costo:3200,estado:'hecho',avisados:'t4',restablecido:addDays(hoy,-20),nota:''});
+  st.data.mantenimientos.m1=mk({id:'m1',destino:'e:e1',motivo:'Reparación del tinaco en la azotea',fecha:addDays(hoy,1),horario:'de 10 a 2 pm',servicios:'agua',costo:1800,proveedor:'Plomería Ramírez',telProveedor:'4771234567',estado:'programado',avisados:'',restablecido:'',nota:''});
+  st.data.mantenimientos.m2=mk({id:'m2',destino:'p:p4',motivo:'Cambio de boiler',fecha:addDays(hoy,-20),horario:'',servicios:'gas',costo:3200,proveedor:'Gas y Calentadores del Bajío',telProveedor:'4777654321',estado:'hecho',avisados:'t4',restablecido:addDays(hoy,-20),nota:''});
   [['p1','TV','Pantalla de 43 pulgadas, con control'],['p1','Cama matrimonial','Con colchón en buen estado'],['p1','Base de cama','Madera, color nogal'],['p1','Closet','Closet de madera con 3 puertas'],['p1','Refrigerador','Blanco, 14 pies'],['p3','Estufa','De 6 quemadores'],['p3','Lavadora','Marca Whirlpool, 18 kg']].forEach((x,k)=>{st.data.inventario['i'+k]=mk({id:'i'+k,propiedadId:x[0],nombre:x[1],descripcion:x[2],estado:'en',fechaRetiro:'',motivoRetiro:''})});
   st.data.inventario.ir=mk({id:'ir',propiedadId:'p3',nombre:'Sillón de sala',descripcion:'Tres piezas, gris',estado:'retirado',fechaRetiro:addDays(hoy,-40),motivoRetiro:'Se lo llevó el inquilino anterior'});
   st.data.avisos.a1=mk({id:'a1',inquilinoId:'t4',mes:M,etapa:'15',fecha:addMonths(M,0)+'-'+String(Math.max(1,d-6)).padStart(2,'0')});
