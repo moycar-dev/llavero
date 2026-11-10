@@ -116,6 +116,9 @@ section{margin-bottom:32px}
 .s-luz{background:var(--oro-l);color:var(--oro-t)}
 .s-agua{background:var(--cielo-l);color:var(--cielo)}
 .s-gas{background:var(--lav-l);color:var(--lav)}
+.s-internet{background:#E3F2EF;color:#1F6F63}
+.s-mant{background:var(--oro-l);color:var(--oro-t)}
+.s-inv{background:var(--azul-l);color:var(--azul)}
 .s-pago{background:var(--verde-l);color:var(--verde)}
 .s-inq{background:var(--azul-l);color:var(--azul)}
 .s-aviso{background:var(--oro-l);color:var(--oro-t)}
@@ -233,6 +236,24 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 .item .btn.wa svg{display:none}
 .item .it span{line-height:1.35}
 
+/* Mantenimientos e inventario */
+.acts .act:last-child:nth-child(odd){grid-column:1/-1}
+.chk{padding:14px 0;border-top:1px solid var(--line)}
+.chk b{display:block;font-size:19px;margin-bottom:2px}
+.chk .seg{margin-top:8px}.chk .seg .btn{min-width:0;flex:1}
+.seg .btn.on.ok{background:var(--verde);border-color:var(--verde);color:#fff}
+.seg .btn.on.bad{background:var(--rojo);border-color:var(--rojo);color:#fff}
+.seg .btn.on.warn{background:var(--oro);border-color:var(--oro);color:#fff}
+.qk{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.qk .btn{min-height:40px;font-size:16px;padding:4px 14px}
+.tn{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}.tn .it{flex:1;min-width:0}.tn .it span{display:block;color:var(--muted);font-size:16px}
+@media (min-width:700px){.acts .act:last-child:nth-child(odd){grid-column:auto}}
+/* Guía de pasos y ajustes de flujo */
+#sheet:not([hidden])~#toastBox .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top));z-index:60}
+.seg.sv{display:grid;grid-template-columns:1fr 1fr}.seg.sv .btn{min-width:0}
+.next{display:flex;gap:12px;align-items:flex-start;background:var(--oro-l);color:var(--oro-t);border-radius:16px;padding:14px 16px;margin:2px 0 14px;font-size:18px;font-weight:600}
+.next .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--oro);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+.next.okk{background:var(--verde-l);color:var(--verde)}.next.okk .n{background:var(--verde)}
+.chk.miss{border-left:4px solid var(--rojo);padding-left:12px}
 /* Inicio compacto y filtros */
 .dia{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;background:var(--soft);border:0;border-radius:var(--r);text-align:left;transition:background .12s,transform .08s}
 .dia:active{background:var(--azul-l);transform:scale(.99)}
@@ -267,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.1.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.2.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
@@ -276,11 +297,14 @@ const COLS={
   gastos:['propiedadId','servicio','mes','monto','nota'],
   pagos:['inquilinoId','propiedadId','mes','fecha','monto','nota'],
   avisos:['inquilinoId','mes','etapa','fecha'],
-  comentarios:['clave','texto','fecha']
+  comentarios:['clave','texto','fecha'],
+  mantenimientos:['destino','motivo','fecha','horario','servicios','costo','estado','avisados','restablecido','nota'],
+  inventario:['propiedadId','nombre','descripcion','estado','fechaRetiro','motivoRetiro'],
+  revisiones:['inquilinoId','propiedadId','fecha','resultado','nota']
 };
-const NUMF={renta:1,diaPago:1,monto:1,predialMonto:1};
-const SERV={luz:{n:'Luz',i:'bolt'},agua:{n:'Agua',i:'drop'},gas:{n:'Gas',i:'flame'}};
-const SCOL={luz:'#BE900E',agua:'#2F6AA0',gas:'#5B6B82'};
+const NUMF={renta:1,diaPago:1,monto:1,predialMonto:1,costo:1};
+const SERV={luz:{n:'Luz',i:'bolt'},agua:{n:'Agua',i:'drop'},gas:{n:'Gas',i:'flame'},internet:{n:'Internet',i:'wifi'}};
+const SCOL={luz:'#BE900E',agua:'#2F6AA0',gas:'#5B6B82',internet:'#2F8F83'};
 const TIPOS=['Departamento','Casa','Local','Cuarto','Otro'];
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DEF_PLANT={
@@ -288,13 +312,19 @@ const DEF_PLANT={
   p10:'Hola {nombre}, un recordatorio amable: la renta de {propiedad} por {monto} vence el {fecha}, en 10 días. Gracias.',
   p3:'Hola {nombre}, la renta de {propiedad} por {monto} vence en 3 días ({fecha}). Si ya pagaste, ignora este mensaje. Gracias.',
   venc:'Hola {nombre}, la renta de {propiedad} por {monto} venció el {fecha}. ¿Me confirmas cuándo puedes realizar el pago? Gracias.',
-  gen:'Hola {nombre}, te recuerdo que la renta de {mes} de {propiedad} es de {monto} y vence el {fecha}. Gracias.'
+  gen:'Hola {nombre}, te recuerdo que la renta de {mes} de {propiedad} es de {monto} y vence el {fecha}. Gracias.',
+  pago:'Hola {nombre}, te confirmo que recibí tu pago de la renta de {mes} de {propiedad} por {monto}. ¡Muchas gracias! — {propietario}',
+  mant:'Hola {nombre}, te saluda {propietario}. Te aviso que {cuando} se realizará un mantenimiento en {propiedad} ({motivo}). {corte}Gracias por tu comprensión.',
+  mantfin:'Hola {nombre}, ya terminó el mantenimiento en {propiedad}. {restab}Gracias por tu paciencia. — {propietario}'
 };
 const ETAPA_TXT={'15':'15 días antes','10':'10 días antes','3':'3 días antes','venc':'Renta vencida'};
 
 /* ---------- Íconos ---------- */
 const P={
   bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  wifi:'<path d="M2 9a15 15 0 0 1 20 0M5.5 12.6a10 10 0 0 1 13 0M9 16.2a5 5 0 0 1 6 0"/><circle cx="12" cy="19.6" r=".9"/>',
+  wrench:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8 6.2 21l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.7 2.7-2.4-.6-.6-2.4z"/>',
+  pkg:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
   drop:'<path d="M12 2.5S5 10 5 15a7 7 0 0 0 14 0c0-5-7-12.5-7-12.5z"/>',
   flame:'<path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-2 2-4 5-4 8 0 4 3 7 6 7z"/>',
   cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/>',
@@ -374,8 +404,8 @@ function activos(){return list('inquilinos').filter(t=>t.estado==='activo'&&prop
 function inqDe(pid){return list('inquilinos').find(t=>t.propiedadId===pid&&t.estado==='activo')}
 function hasServ(p,s){return String(p.servicios||'luz,agua,gas').split(',').includes(s)}
 function isOwner(){return DEMO||!S.conn||S.rol==='propietario'}
-function canEdit(c,r){if(isOwner())return true;return['gastos','pagos','avisos'].includes(c)&&(!r||r.por===S.device||!r.por)}
-function cfg(){const c=S.config||{};return{negocio:c.negocio||'',propietario:c.propietario||'',plantillas:Object.assign({},DEF_PLANT,c.plantillas||{}),v:c.v||1,updatedAt:c.updatedAt||0}}
+function canEdit(c,r){if(isOwner())return true;return['gastos','pagos','avisos','mantenimientos','inventario'].includes(c)&&(!r||r.por===S.device||!r.por)}
+function cfg(){const c=S.config||{};return{negocio:c.negocio||'',propietario:c.propietario||'',telPropietario:c.telPropietario||'',plantillas:Object.assign({},DEF_PLANT,c.plantillas||{}),v:c.v||1,updatedAt:c.updatedAt||0}}
 function propsOrd(){return list('propiedades').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}))}
 
 /* ---------- Renta: cuándo toca y qué aviso sigue ---------- */
@@ -405,6 +435,34 @@ function mensaje(t,st,etapa){
   const v={nombre:firstName(t.nombre),mes:st?MESES[Number(st.mes.slice(5))-1]:'',propiedad:p.nombre||'',monto:money(t.renta),fecha:st?fechaLarga(st.due):'',dias:st?Math.abs(st.dias):'',propietario:c.propietario||S.deviceName||''};
   return tpl.replace(/\{(\w+)\}/g,(m,k)=>k in v?v[k]:m);
 }
+
+/* ---------- Mensajes: pago recibido, mantenimiento, inventario ---------- */
+const RES={ok:['Está','ok'],dano:['Dañado','warn'],falta:['Falta','bad']};
+const QK=['TV','Cama','Base de cama','Colchón','Closet','Refrigerador','Estufa','Mesa','Sillas','Sillón','Lavadora','Minisplit','Cortinas'];
+function propietarioNombre(){const c=cfg();return c.propietario||S.deviceName||''}
+function plant(k,v){return cfg().plantillas[k].replace(/\{(\w+)\}/g,(m,x)=>x in v?v[x]:m)}
+function waUrl(tel,txt){return'https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(txt)}
+function lista(a){a=a.map(x=>x.toLowerCase());return a.length>1?a.slice(0,-1).join(', ')+' y '+a[a.length-1]:a.join('')}
+function mensajePago(t,pg){const p=prop(t.propiedadId)||{};return plant('pago',{nombre:firstName(t.nombre),mes:MESES[Number(String(pg.mes).slice(5))-1]||'',propiedad:p.nombre||'',monto:money(pg.monto),propietario:propietarioNombre()})}
+function enviarPagoWA(pg){const t=get('inquilinos',pg.inquilinoId);if(!t)return;const tel=telWa(t.telefono);if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}window.open(waUrl(tel,mensajePago(t,pg)),'_blank','noopener')}
+const mDest=m=>{const d=String(m.destino||'');return{k:d.slice(0,1),id:d.slice(2)}};
+function mantProps(m){const{k,id}=mDest(m);return k==='e'?list('propiedades').filter(p=>p.predioId===id):[prop(id)].filter(Boolean)}
+function mantBase(m){const{k,id}=mDest(m);return k==='e'?((get('predios',id)||S.data.predios[id]||{}).nombre||'Edificio'):((prop(id)||S.data.propiedades[id]||{}).nombre||'Propiedad')}
+function mantNombre(m){return mDest(m).k==='e'?mantBase(m)+' (todo el edificio)':mantBase(m)}
+function mantInq(m){return mantProps(m).map(p=>inqDe(p.id)).filter(Boolean)}
+function mantSv(m){return String(m.servicios||'').split(',').filter(x=>SERV[x])}
+function mantMes(mes){const a=list('mantenimientos').filter(m=>String(m.fecha).slice(0,7)===mes);return{n:a.length,total:a.reduce((x,m)=>x+(+m.costo||0),0)}}
+function mensajeMant(t,m,fin){
+  const sv=mantSv(m).map(x=>SERV[x].n),f=m.fecha;
+  const cuando=(f===today()?'hoy':f===addDays(today(),1)?'mañana':'el '+fechaLarga(f))+(m.horario?', '+m.horario:'');
+  return plant(fin?'mantfin':'mant',{nombre:firstName(t.nombre),propietario:propietarioNombre(),propiedad:mantBase(m),motivo:m.motivo,cuando,corte:sv.length?'Durante ese tiempo no habrá '+lista(sv)+'. ':'',restab:sv.length?'Ya quedó restablecido: '+lista(sv)+'. ':''});
+}
+function mensajeInv(i){const c=cfg(),p=prop(i.propiedadId)||{};return'Hola'+(c.propietario?' '+c.propietario:'')+', te aviso que se retirará "'+i.nombre+'" de '+(p.nombre||'la propiedad')+(i.motivoRetiro?' ('+i.motivoRetiro+')':'')+'.'+(S.deviceName?' — '+S.deviceName:'')}
+function invDe(pid,est){return list('inventario').filter(i=>i.propiedadId===pid&&(!est||i.estado===est)).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))}
+function resItems(str){return String(str||'').split('|').filter(Boolean).map(x=>{const i=x.lastIndexOf('=');const v=RES[x.slice(i+1)]||RES.ok;return`<div class="tn"><span class="it"><b>${esc(x.slice(0,i))}</b></span><span class="chip ${v[1]}">${v[0]}</span></div>`}).join('')}
+function volverProp(pid){F={flow:'pdet',hist:[]};pdet(pid)}
+function redet(){const el=$('#sheet .sheet');const sc=el?el.scrollTop:0;FLOWS.mant.det();const e2=$('#sheet .sheet');if(e2)e2.scrollTop=sc}
+function msvSeg(){return`<div class="seg sv">${Object.keys(SERV).map(s=>`<button class="btn sm${F.msv.includes(s)?' on':''}" data-a="m-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div>`}
 
 /* ---------- Guardar, deshacer y sincronizar ---------- */
 const inflight=new Set();let syncing=false,tm=null;
@@ -479,13 +537,14 @@ function showErr(msg){const e=$('#ferr');if(e){e.textContent=msg;e.hidden=false}
 function mesOptions(sel,from,to){let h='';for(let i=from;i<=to;i++){const m=addMonths(curMonth(),i);h+=`<option value="${m}"${m===sel?' selected':''}>${mesLargo(m)}</option>`}if(sel&&!h.includes('"'+sel+'"'))h=`<option value="${sel}" selected>${mesLargo(sel)}</option>`+h;return h}
 function diaOptions(sel){let h='';for(let d=1;d<=31;d++)h+=`<option value="${d}"${d==sel?' selected':''}>${d}</option>`;return h}
 function moneyInp(v){return`<div class="money"><span>$</span><input id="fmonto" inputmode="decimal" autocomplete="off" value="${v===''||v==null?'':esc(v)}" placeholder="0" aria-label="Monto" data-focus></div>`}
-function servBadge(s){return`<span class="chip ${s==='luz'?'warn':'info'}" style="${s==='gas'?'background:var(--lav-l);color:var(--lav)':s==='agua'?'background:var(--cielo-l);color:var(--cielo)':''}">${I[SERV[s].i]} ${SERV[s].n}</span>`}
+function servBadge(s){const sty={gas:'background:var(--lav-l);color:var(--lav)',agua:'background:var(--cielo-l);color:var(--cielo)',internet:'background:#E3F2EF;color:#1F6F63'}[s]||'';return`<span class="chip ${s==='luz'?'warn':'info'}" style="${sty}">${I[SERV[s].i]} ${SERV[s].n}</span>`}
+function servSeg(){return`<div class="seg sv">${Object.keys(SERV).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div><p class="hint">Internet: actívalo solo si tú pagas ese recibo. Si el contrato va por aparte, déjalo apagado.</p>`}
 
 const FLOWS={};
 /* Gasto */
 FLOWS.gasto={
   start(){F.step=F.s?'prop':'serv';this[F.step]()},
-  serv(){sheet(shead('¿Qué recibo vas a registrar?')+'<div class="opts">'+Object.keys(SERV).map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
+  serv(){sheet(shead('¿Qué recibo vas a registrar?')+'<div class="opts">'+Object.keys(SERV).filter(s=>list('propiedades').some(p=>hasServ(p,s))).map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
   prop(){
     const M=F.mes||curMonth();const ps=propsOrd().filter(p=>hasServ(p,F.s));
     if(!ps.length){sheet(shead('No hay propiedades con '+SERV[F.s].n)+'<p class="muted">Agrega una propiedad o activa este servicio en sus datos.</p>');return}
@@ -523,6 +582,14 @@ FLOWS.pago={
       <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" placeholder="Ej. transferencia, pagó en efectivo"></details>
       <div class="sep"></div><button class="btn pri big full" data-a="p-save">${I.check} Guardar pago</button>`);
   }
+};
+/* Pago guardado: confirmar por WhatsApp */
+FLOWS.pago.ok=function(){
+  const pg=F.pg,t=get('inquilinos',pg.inquilinoId)||{};
+  sheet(`<div class="shead"><span></span><button class="btn sm" data-a="close">${I.x} Cerrar</button></div><h2 class="q">Pago guardado</h2><div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span><span class="chip off">${money(pg.monto)} · ${mesLargo(pg.mes)}</span></div>
+    <label class="f">Mensaje de confirmación para ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensajePago(t,pg))}</div>
+    ${t.telefono?'':'<p class="hint">Este inquilino no tiene WhatsApp registrado.</p>'}
+    <div class="sep"></div><button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Confirmar pago por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`);
 };
 /* Alta de inquilino */
 FLOWS.alta={
@@ -567,10 +634,14 @@ FLOWS.baja={
     sheet(shead('¿Quién deja de rentar?')+'<div class="opts">'+ts.map(t=>`<button class="opt" data-a="b-quien" data-id="${t.id}"><span class="ic s-inq">${I.userMinus}</span><span class="it">${esc(t.nombre)}<span>${esc(prop(t.propiedadId).nombre)}</span></span></button>`).join('')+'</div>');
   },
   conf(){
-    const t=get('inquilinos',F.tid);
-    sheet(shead('¿'+esc(firstName(t.nombre))+' deja '+esc(prop(t.propiedadId).nombre)+'?')+`<p class="muted">La propiedad quedará como desocupada. Sus pagos y datos se quedan en el historial.</p>
+    const t=get('inquilinos',F.tid),inv=invDe(t.propiedadId,'en');
+    sheet(shead('¿'+esc(firstName(t.nombre))+' deja '+esc(prop(t.propiedadId).nombre)+'?')+`<p class="muted">La propiedad quedará como desocupada. Sus pagos y datos se quedan en el historial.${inv.length?' Antes de terminar, revisas el inventario de la propiedad.':''}</p>${inv.length?'':'<p class="hint">Esta propiedad no tiene inventario anotado. Puedes agregarlo en Propiedades para revisarlo la próxima vez.</p>'}
       <details class="more"><summary class="btn sm">${I.edit} Cambiar fecha de salida</summary><label class="f" for="ffecha">Fecha de salida</label><input class="inp" type="date" id="ffecha" value="${today()}"></details>
-      <div class="sep"></div><button class="btn danger big full" data-a="b-save">${I.userMinus} Sí, dar de baja</button>`);
+      <div class="sep"></div>${inv.length?`<button class="btn pri big full" data-a="b-next">${I.list} Continuar: revisar inventario (${inv.length})</button>`:`<button class="btn danger big full" data-a="b-save">${I.userMinus} Sí, dar de baja</button>`}`);
+  },
+  chk(){
+    const t=get('inquilinos',F.tid),inv=invDe(t.propiedadId,'en');F.chk=F.chk||{};
+    sheet(shead('Revisa el inventario',`<span class="chip off">${esc(prop(t.propiedadId).nombre)}</span><span class="chip info" id="chkprog">${inv.filter(i=>F.chk[i.id]).length} de ${inv.length} revisados</span>`)+`<p class="muted">Marca cómo está cada cosa antes de que ${esc(firstName(t.nombre))} entregue. Hay que revisar todo para poder continuar.</p>`+inv.map(i=>`<div class="chk"><b>${esc(i.nombre)}</b>${i.descripcion?`<span class="muted small">${esc(i.descripcion)}</span>`:''}<div class="seg">${['ok','dano','falta'].map(v=>`<button class="btn sm${F.chk[i.id]===v?' on '+RES[v][1]:''}" data-a="b-chk" data-id="${i.id}" data-v="${v}">${RES[v][0]}</button>`).join('')}</div></div>`).join('')+`<label class="f" for="fnota">Observaciones (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(F.cnota||'')}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="b-save">${I.userMinus} Dar de baja a ${esc(firstName(t.nombre))}</button>`);
   }
 };
 /* Propiedad nueva, edificio con departamentos, o edición */
@@ -596,7 +667,7 @@ FLOWS.prop={
     h+=`<label class="f">Tipo</label><div class="seg">${TIPOS.slice(0,3).map(t=>`<button class="btn sm${F.tipo===t?' on':''}" data-a="pr-tipo" data-t="${t}">${t}</button>`).join('')}</div>
       <div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(p.renta||'')}"></div>
       <div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(p.diaPago||1)}</select></div></div>
-      <label class="f">¿Qué servicios pagas tú?</label><div class="seg">${Object.keys(SERV).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div>`;
+      <label class="f">¿Qué servicios pagas tú?</label>${servSeg()}`;
     if(isOwner())h+=compartido?`<p class="hint">El predial de este edificio se maneja desde el edificio.</p>`:predialInputs(p);
     h+=`<div class="err" id="ferr" hidden></div>
       <details class="more"><summary class="btn sm">${I.edit} Dirección o nota</summary>
@@ -607,7 +678,7 @@ FLOWS.prop={
   },
   edif1(){const e=F.e||{};sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" placeholder="Ej. Edificio Madero" value="${esc(e.nombre||'')}" data-focus><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(e.direccion||'')}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-1">Continuar</button>`)},
   edif2(){sheet(shead('¿Cuáles son los departamentos?',`<span class="chip off">${esc(F.e.nombre)}</span>`)+`<p class="muted">Escribe el número o nombre de cada uno, separados por coma o en renglones.</p><textarea class="inp" id="fints" placeholder="1, 2, 3, 4" data-focus>${esc(F.ints||'')}</textarea><p class="hint">Ejemplos: 1, 2, 3 · 101, 102, 201 · A, B, C</p><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-2">Continuar</button>`)},
-  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">¿Qué servicios pagas tú?</label><div class="seg">${Object.keys(SERV).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
+  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">¿Qué servicios pagas tú?</label>${servSeg()}<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
   edif4(){sheet(shead('¿Cómo se paga el predial?')+`<div class="opts"><button class="opt" data-a="pr-pmodo" data-m="edificio"><span class="ic s-inq">${I.home}</span><span class="it">Uno solo por todo el edificio<span>Un solo pago al año</span></span></button><button class="opt" data-a="pr-pmodo" data-m="unidad"><span class="ic s-inq">${I.key}</span><span class="it">Uno por cada departamento<span>Cada uno tiene su cuenta</span></span></button><button class="opt" data-a="pr-pmodo" data-m="no"><span class="ic s-inq">${I.clock}</span><span class="it">Todavía no lo sé<span>Lo agrego después</span></span></button></div>`)},
   pred(){sheet(shead(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada departamento')+(F.pmodo==='unidad'?'<p class="muted">Pongo el mismo monto y fecha a todos. Después puedes ajustar cada uno.</p>':'')+predialInputs(F.pr||{})+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-pred">Continuar</button>`)},
   conf(){const e=F.e,pr=F.pr||{};const pt=F.pmodo==='no'||!pr.predialFecha&&!pr.predialMonto?'Sin predial por ahora':(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada uno')+': '+(pr.predialMonto?money(pr.predialMonto)+' al año':'')+(pr.predialFecha?' · vence el '+fechaCompleta(pr.predialFecha):'');
@@ -631,6 +702,77 @@ FLOWS.coment={
       <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="c-save">${I.check} Guardar comentario</button>`);
   }
 };
+/* Mantenimientos */
+FLOWS.mant={
+  start(){
+    if(F.id){const m=get('mantenimientos',F.id);if(!m)return closeSheet();F.destino=m.destino;F.msv=mantSv(m);F.step='det';this.det();return}
+    F.msv=[];if(F.destino){F.step='form';this.form();return}
+    F.step='donde';this.donde();
+  },
+  donde(){
+    const ps=propsOrd();if(!ps.length){sheet(shead('Aún no hay propiedades')+'<p class="muted">Agrega una propiedad primero.</p>');return}
+    const eds=list('predios').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+    const solos=ps.filter(p=>!p.predioId||!get('predios',p.predioId));
+    const op=(d,ic,t,sub)=>`<button class="opt" data-a="m-donde" data-d="${d}"><span class="ic s-mant">${I[ic]}</span><span class="it">${esc(t)}<span>${esc(sub)}</span></span></button>`;
+    sheet(shead('¿Dónde será el mantenimiento?')+'<div class="opts">'+solos.map(p=>op('p:'+p.id,'home',p.nombre,p.tipo+(inqDe(p.id)?' · tiene inquilino':' · desocupada'))).join('')+eds.map(d=>{const n=ps.filter(x=>x.predioId===d.id).length;return op('e:'+d.id,'key','Edificio '+d.nombre,'Todo el edificio · '+n+' depto'+(n===1?'':'s'))}).join('')+(eds.length?`<button class="opt" data-a="m-unit"><span class="ic s-mant">${I.key}</span><span class="it">Solo un departamento<span>De un edificio</span></span></button>`:'')+'</div>');
+  },
+  unidad(){
+    const us=propsOrd().filter(p=>p.predioId&&get('predios',p.predioId));
+    sheet(shead('¿Cuál departamento?')+'<div class="opts">'+us.map(p=>`<button class="opt" data-a="m-donde" data-d="p:${p.id}"><span class="ic s-mant">${I.home}</span><span class="it">${esc(p.nombre)}<span>${inqDe(p.id)?esc(inqDe(p.id).nombre):'Desocupado'}</span></span></button>`).join('')+'</div>');
+  },
+  form(){
+    const m=F.id?get('mantenimientos',F.id):{};
+    sheet(shead(F.id?'Corregir mantenimiento':'¿Qué se va a hacer?',`<span class="chip off">${esc(mantNombre({destino:F.destino}))}</span>`)+
+      `<label class="f" for="fmot">Motivo</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Reparar fuga del baño" value="${esc(m.motivo||'')}" data-focus>
+      <div class="two"><div><label class="f" for="ffecha">Día</label><input class="inp" type="date" id="ffecha" value="${esc(m.fecha||today())}"></div><div><label class="f" for="fhor">Horario (opcional)</label><input class="inp" id="fhor" maxlength="50" placeholder="de 10 a 2 pm" value="${esc(m.horario||'')}"></div></div>
+      <label class="f">¿Qué servicios se cortan?</label>${msvSeg()}<p class="hint">Si no se corta ninguno, déjalos sin marcar.</p>
+      <label class="f" for="fcosto">Costo (opcional)</label><div class="money"><span>$</span><input id="fcosto" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(m.costo===''||m.costo==null?'':m.costo)}"></div>
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(m.nota||'')}">
+      <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="m-save">${I.check} Guardar</button>`);
+  },
+  det(){
+    const m=get('mantenimientos',F.id);if(!m)return closeSheet();
+    const ts=mantInq(m),av=String(m.avisados||'').split(','),hecho=m.estado==='hecho',sv=mantSv(m);
+    const fila=(t,fin)=>{const ya=!fin&&av.includes(t.id);return`<div class="tn"><span class="it"><b>${esc(t.nombre)}</b><span>${esc((prop(t.propiedadId)||{}).nombre||'')}${ya?' · ya avisado':''}</span></span><button class="btn sm wa" data-a="${fin?'m-wafin':'m-wa'}" data-id="${t.id}">${I.chat} ${ya?'Reenviar':'Avisar'}</button></div>`};
+    const nAv=ts.filter(t=>av.includes(t.id)).length;
+    const paso=hecho?['okk',I.check,'Terminado. Si quieres, avisa a los inquilinos que ya quedó.']:!ts.length?['',2,'No hay inquilinos que avisar. Cuando terminen, toca «Ya se terminó».']:nAv<ts.length?['',1,'Siguiente paso: avisa a los inquilinos'+(ts.length>1?' ('+nAv+' de '+ts.length+' avisados).':'.')]:['okk',2,'Todos avisados. Cuando terminen el trabajo, toca «Ya se terminó».'];
+    let h=shead(esc(m.motivo),`<span class="chip off">${esc(mantNombre(m))}</span><span class="chip ${hecho?'ok':'warn'}">${hecho?'Terminado':'Pendiente'}</span>`)+`<div class="next ${paso[0]}"><span class="n">${paso[1]}</span><span>${paso[2]}</span></div>`;
+    h+=`<div class="box"><div class="muted">${fechaLarga(m.fecha)} ${String(m.fecha).slice(0,4)}${m.horario?' · '+esc(m.horario):''}</div><div class="ps" style="margin-top:8px">${sv.length?sv.map(servBadge).join(''):'<span class="chip off">No se corta ningún servicio</span>'}</div>${m.costo!==''&&m.costo!=null?`<div class="sep" style="height:10px"></div><div class="muted">Costo</div><div class="kpi" style="font-size:28px">${money(m.costo)}</div>`:''}${m.nota?`<p class="muted small">${esc(m.nota)}</p>`:''}</div>`;
+    h+=`<div class="box"><h3>Avisar a los inquilinos</h3>`+(ts.length?`<p class="muted small">Se abre WhatsApp con el mensaje listo; tú solo das enviar, uno por uno.</p><div class="waprev">${esc(mensajeMant(ts[0],m,false))}</div>`+ts.map(t=>fila(t,false)).join(''):'<p class="muted">Ahora no hay inquilinos en este lugar.</p>')+'</div>';
+    if(hecho&&ts.length)h+=`<div class="box"><h3>Avisar que ya terminó</h3>`+ts.map(t=>fila(t,true)).join('')+'</div>';
+    if(!hecho)h+=`<button class="btn pri big full" data-a="m-done">${I.check} Ya se terminó</button><div class="sep"></div>`;
+    h+=`<div class="row"><button class="btn" data-a="m-edit">${I.edit} Corregir</button>${isOwner()?`<button class="btn" data-a="m-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''}</div>`;
+    sheet(h);
+  },
+  del(){sheet(shead('¿Borrar este mantenimiento?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="m-delok">'+I.trash+' Sí, borrar</button>')}
+};
+/* Inventario de una propiedad */
+FLOWS.inv={
+  start(){F.hist=['lista'];F.step='form';this.form()},
+  lista(){volverProp(F.pid)},
+  form(){
+    const i=F.id?get('inventario',F.id):{};const p=prop(F.pid)||{};
+    if(F.id&&!i.id)return volverProp(F.pid);
+    const ya=invDe(F.pid,'en').map(x=>x.nombre.toLowerCase());
+    sheet(shead(F.id?'Artículo':'Agregar al inventario',`<span class="chip off">${esc(p.nombre||'')}</span>${i.estado==='retirado'?'<span class="chip warn">Retirado</span>':''}`)+
+      (F.id?'':`<label class="f">Toca uno o escribe el tuyo</label><div class="qk">${QK.filter(q=>!ya.includes(q.toLowerCase())).map(q=>`<button class="btn sm" data-a="inv-q" data-n="${esc(q)}">${esc(q)}</button>`).join('')}</div>`)+
+      `<label class="f" for="fnom">¿Qué es?</label><input class="inp" id="fnom" maxlength="60" placeholder="Ej. TV, cama matrimonial" value="${esc(i.nombre||'')}" ${F.id?'':'data-focus'}>
+      <label class="f" for="fdesc">Descripción (opcional)</label><textarea class="inp" id="fdesc" maxlength="200" placeholder="Ej. Pantalla de 43 pulgadas, con control">${esc(i.descripcion||'')}</textarea>
+      <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="inv-save">${I.check} Guardar</button>`+
+      (F.id&&i.estado==='en'?`<div class="sep"></div><button class="btn full" data-a="inv-ret">${I.pkg} Retirar de la propiedad</button>`:'')+
+      (F.id&&i.estado==='retirado'?`<div class="sep"></div><button class="btn full" data-a="inv-back">${I.refresh} Volver a ponerlo en la propiedad</button>`:'')+
+      (F.id&&isOwner()?`<div class="sep"></div><button class="btn full" data-a="inv-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
+  },
+  ret(){
+    const i=get('inventario',F.id),p=prop(F.pid)||{};
+    sheet(shead('¿Retirar '+esc(i.nombre)+'?')+`<p class="muted">Se quita del inventario de ${esc(p.nombre||'la propiedad')}. ${isOwner()?'':'Después te dejo listo un WhatsApp para avisar al propietario.'}</p><label class="f" for="fmot">¿Por qué o a dónde se lleva? (opcional)</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Se lo lleva el inquilino"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="inv-retok">Sí, retirar</button>`);
+  },
+  aviso(){
+    const i=get('inventario',F.id)||{},c=cfg();
+    sheet(`<div class="shead"><span></span><button class="btn sm" data-a="close">${I.x} Cerrar</button></div><h2 class="q">Avisa al propietario</h2><p class="muted">Ya quedó retirado. Envía este aviso para que sepa que se quitará de la propiedad.</p><div class="waprev">${esc(mensajeInv(i))}</div>${telWa(c.telPropietario)?'':'<p class="hint">Aún no hay WhatsApp del propietario guardado: se abrirá WhatsApp para que elijas el contacto. El propietario puede guardarlo en Ajustes → Editar mensajes.</p>'}<div class="sep"></div><button class="btn wa big full" data-a="inv-wa">${I.chat} Avisar por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Ahora no</button>`);
+  },
+  del(){sheet(shead('¿Borrar este artículo?')+'<p class="muted">Se borra por completo del inventario. Si solo se lo llevaron, mejor usa «Retirar de la propiedad».</p><button class="btn danger big full" data-a="inv-delok">'+I.trash+' Sí, borrar</button>')}
+};
 /* Corregir o borrar un registro */
 FLOWS.edit={
   start(){F.step='form';this.form()},
@@ -640,9 +782,10 @@ FLOWS.edit={
     if(F.c==='gastos'){h=`<div class="ctx">${servBadge(r.servicio)}<span class="chip off">${esc((prop(r.propiedadId)||{}).nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,1)}</select><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
     else if(F.c==='pagos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes que paga</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,3)}</select><label class="f" for="ffecha">Fecha</label><input class="inp" type="date" id="ffecha" value="${esc(r.fecha)}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
     else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
+    else if(F.c==='revisiones'){const t=get('inquilinos',r.inquilinoId)||S.data.inquilinos[r.inquilinoId]||{};const pr=prop(r.propiedadId)||{};h=`<div class="box"><h3>Revisión de inventario</h3><div class="muted">${esc(pr.nombre||'')} · salida de ${esc(t.nombre||'')} · ${fechaLarga(r.fecha)}</div>${resItems(r.resultado)}${r.nota?`<p class="muted small">${esc(r.nota)}</p>`:''}</div>`}
     else if(F.c==='avisos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="box"><h3>Aviso a ${esc(t.nombre||'')}</h3><div class="muted">${ETAPA_TXT[r.etapa]} · ${mesLargo(r.mes)} · enviado el ${fechaLarga(r.fecha)}</div></div>`}
-    const editable=F.c!=='avisos';
-    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
+    const editable=!['avisos','revisiones'].includes(F.c);
+    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(F.c==='pagos'?`<button class="btn wa full" data-a="pg-wa" data-id="${r.id}">${I.chat} Enviar confirmación por WhatsApp</button><div class="sep"></div>`:'')+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
   },
   del(){sheet(shead('¿Borrar este registro?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="e-delok">'+I.trash+' Sí, borrar</button>')}
 };
@@ -681,7 +824,7 @@ const ACT={
   'p-quien'(d){F.tid=d.id;go('monto')},
   'p-save'(){const m=parseMonto();if(m==null)return;const t=get('inquilinos',F.tid);const st=estadoRenta(t);
     const r={id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,mes:val('fmes')||(st?st.mes:curMonth()),fecha:val('ffecha')||today(),monto:m,nota:val('fnota')};
-    closeSheet();commit([{c:'pagos',r}],'Pago de '+firstName(t.nombre)+' guardado')},
+    commit([{c:'pagos',r}],'Pago de '+firstName(t.nombre)+' guardado');F={flow:'pago',hist:[],tid:t.id,pg:r,step:'ok'};FLOWS.pago.ok()},
   'a-prop'(d){F.pid=d.id;go('datos')},
   'a-dur'(d,b){F.dur=d.n;document.querySelectorAll('[data-a="a-dur"]').forEach(x=>x.classList.toggle('on',x===b));const e=document.getElementById('ffin');if(!e)return;if(d.n!=='otra')e.value=addMesesFecha(val('fini')||today(),Number(d.n));else e.focus()},
   'a-next'(){const nombre=val('fnom'),tel=val('ftel').replace(/\D/g,''),renta=num(val('fren'));
@@ -716,8 +859,57 @@ const ACT={
     const sv=Object.keys(SERV).filter(s=>F.serv.includes(s)).join(',');
     for(const it of F.list)ops.push({c:'propiedades',r:{id:uid(),nombre:e.nombre+' · '+it,tipo:'Departamento',direccion:'',renta:e.renta||0,diaPago:e.diaPago,servicios:sv,notas:'',predioId:did,interior:it,predialMonto:up.predialMonto||'',predialFecha:up.predialFecha||'',predialClave:up.predialClave||'',predialPagado:''}});
     const n=F.list.length;closeSheet();commit(ops,'Edificio guardado con '+n+' departamento'+(n>1?'s':''))},
+  mant(){startFlow('mant',{})},
+  'mant-p'(d){startFlow('mant',{destino:'p:'+d.id})},
+  mdet(d){startFlow('mant',{id:d.id})},
+  'm-donde'(d){F.destino=d.d;go('form')},
+  'm-unit'(){go('unidad')},
+  'm-serv'(d,b){const i=F.msv.indexOf(d.s);if(i>=0)F.msv.splice(i,1);else F.msv.push(d.s);b.classList.toggle('on',i<0)},
+  'm-save'(){
+    const motivo=val('fmot');if(motivo.length<3)return showErr('Escribe el motivo del mantenimiento.');
+    const fecha=val('ffecha');if(!fecha)return showErr('Elige el día.');
+    const cs=val('fcosto');let costo='';if(cs){const n=num(cs);if(!(n>=0)||n>10000000)return showErr('El costo no es válido.');costo=Math.round(n*100)/100}
+    const base=F.id?get('mantenimientos',F.id):{id:uid(),estado:'programado',avisados:'',restablecido:''};
+    const r=Object.assign({},base,{destino:F.destino,motivo,fecha,horario:val('fhor'),servicios:Object.keys(SERV).filter(s=>F.msv.includes(s)).join(','),costo,nota:val('fnota')});
+    const nuevo=!F.id;commit([{c:'mantenimientos',r}],nuevo?'Mantenimiento guardado':'Cambios guardados');
+    F={flow:'mant',hist:[],id:r.id,step:'det',destino:r.destino,msv:mantSv(r)};FLOWS.mant.det()},
+  'm-edit'(){F.hist=['det'];F.step='form';FLOWS.mant.form()},
+  'm-wa'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
+    if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
+    window.open(waUrl(tel,mensajeMant(t,m,false)),'_blank','noopener');
+    const av=String(m.avisados||'').split(',').filter(Boolean);
+    if(!av.includes(t.id)){av.push(t.id);put('mantenimientos',Object.assign({},m,{avisados:av.join(',')}));afterChange();redet()}},
+  'm-wafin'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
+    if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
+    window.open(waUrl(tel,mensajeMant(t,m,true)),'_blank','noopener')},
+  'm-done'(){const m=get('mantenimientos',F.id);if(!m)return;put('mantenimientos',Object.assign({},m,{estado:'hecho',restablecido:today()}));afterChange();toast('Marcado como terminado');redet()},
+  'm-del'(){F.hist=['det'];F.step='del';FLOWS.mant.del()},
+  'm-delok'(){const m=get('mantenimientos',F.id);closeSheet();if(m)commit([{c:'mantenimientos',r:Object.assign({},m,{eliminado:1})}],'Mantenimiento borrado')},
+  'pg-wa'(d){const pg=get('pagos',d.id);if(pg)enviarPagoWA(pg)},
+  invadd(d){startFlow('inv',{pid:d.id})},
+  invitem(d){const i=get('inventario',d.id);if(i)startFlow('inv',{pid:i.propiedadId,id:i.id})},
+  'inv-q'(d){const e=$('#fnom');if(e){e.value=d.n;e.focus()}},
+  'inv-save'(){const nombre=val('fnom');if(nombre.length<2)return showErr('Escribe qué artículo es.');
+    const base=F.id?get('inventario',F.id):{id:uid(),propiedadId:F.pid,estado:'en',fechaRetiro:'',motivoRetiro:''};
+    const r=Object.assign({},base,{nombre,descripcion:val('fdesc')});const pid=F.pid,nuevo=!F.id;
+    commit([{c:'inventario',r}],nuevo?nombre+' agregado al inventario':'Cambios guardados');volverProp(pid)},
+  'inv-ret'(){go('ret')},
+  'inv-retok'(){const i=get('inventario',F.id);if(!i)return closeSheet();const r=Object.assign({},i,{estado:'retirado',fechaRetiro:today(),motivoRetiro:val('fmot')});const pid=F.pid;
+    commit([{c:'inventario',r}],i.nombre+' retirado del inventario');
+    if(isOwner())volverProp(pid);else{F={flow:'inv',hist:[],pid,id:i.id,step:'aviso'};FLOWS.inv.aviso()}},
+  'inv-wa'(){const i=get('inventario',F.id);if(i)window.open(waUrl(telWa(cfg().telPropietario),mensajeInv(i)),'_blank','noopener')},
+  'inv-back'(){const i=get('inventario',F.id);if(!i)return;const pid=F.pid;commit([{c:'inventario',r:Object.assign({},i,{estado:'en',fechaRetiro:'',motivoRetiro:''})}],i.nombre+' volvió al inventario');volverProp(pid)},
+  'inv-del'(){go('del')},
+  'inv-delok'(){const i=get('inventario',F.id);const pid=F.pid;if(i)commit([{c:'inventario',r:Object.assign({},i,{eliminado:1})}],'Artículo borrado');volverProp(pid)},
+  'b-next'(){F.fsal=val('ffecha')||today();go('chk')},
+  'b-chk'(d,b){F.chk=F.chk||{};F.chk[d.id]=d.v;b.parentElement.querySelectorAll('.btn').forEach(x=>{x.className='btn sm'});b.className='btn sm on '+RES[d.v][1];b.closest('.chk').classList.remove('miss');const inv=invDe((get('inquilinos',F.tid)||{}).propiedadId,'en');const e=$('#chkprog');if(e)e.textContent=inv.filter(i=>F.chk[i.id]).length+' de '+inv.length+' revisados'},
   'b-quien'(d){F.tid=d.id;go('conf')},
-  'b-save'(){const t=get('inquilinos',F.tid);const f=val('ffecha')||today();closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{estado:'baja',fechaBaja:f})}],firstName(t.nombre)+' quedó dado de baja')},
+  'b-save'(){const t=get('inquilinos',F.tid);const f=F.fsal||val('ffecha')||today();const inv=invDe(t.propiedadId,'en'),ops=[];let bad=0;
+    if(inv.length){const ch=F.chk||{};if(inv.some(i=>!ch[i.id])){const rows=[...document.querySelectorAll('.chk')];let first=null;inv.forEach((i,k)=>{if(!ch[i.id]&&rows[k]){rows[k].classList.add('miss');first=first||rows[k]}});if(first)first.scrollIntoView({block:'center',behavior:'smooth'});return showErr('Faltan artículos por revisar (marcados en rojo).')}
+      bad=inv.filter(i=>ch[i.id]!=='ok').length;
+      ops.push({c:'revisiones',r:{id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,fecha:f,resultado:inv.map(i=>i.nombre.replace(/[=|]/g,' ')+'='+ch[i.id]).join('|').slice(0,1500),nota:val('fnota')}})}
+    ops.push({c:'inquilinos',r:Object.assign({},t,{estado:'baja',fechaBaja:f})});
+    closeSheet();commit(ops,firstName(t.nombre)+' quedó dado de baja'+(bad?' · '+bad+' artículo'+(bad>1?'s':'')+' con observaciones':''))},
   'pr-tipo'(d){F.tipo=d.t;document.querySelectorAll('[data-a="pr-tipo"]').forEach(b=>b.classList.toggle('on',b.dataset.t===d.t))},
   'pr-serv'(d,b){const i=F.serv.indexOf(d.s);if(i>=0)F.serv.splice(i,1);else F.serv.push(d.s);b.classList.toggle('on',i<0)},
   'pr-save'(){
@@ -761,7 +953,7 @@ const ACT={
   'aj-offok'(){const dev=S.device;S=blank();S.device=dev;save();closeSheet();render();toast('Teléfono desconectado')},
   'aj-plant'(){F={flow:'aj',hist:['x']};plantillas()},
   'pl-save'(){const c=cfg();const pl={};for(const k of Object.keys(DEF_PLANT)){const v=val('pl_'+k);pl[k]=v||DEF_PLANT[k]}
-    S.config=Object.assign({},c,{propietario:val('pl_prop').slice(0,60),negocio:val('pl_neg').slice(0,80),plantillas:pl,updatedAt:Date.now()});S.configDirty++;save();closeSheet();render();schedule(1000);toast('Mensajes guardados')},
+    S.config=Object.assign({},c,{telPropietario:val('pl_tel').replace(/\D/g,'').slice(-10),propietario:val('pl_prop').slice(0,60),negocio:val('pl_neg').slice(0,80),plantillas:pl,updatedAt:Date.now()});S.configDirty++;save();closeSheet();render();schedule(1000);toast('Mensajes guardados')},
   'aj-csv'(d){exportCSV(d.c)},
   'link-ok'(){const n=val('fname');if(n.length<2)return showErr('Escribe tu nombre.');const L=window._link;window._link=null;conectar(L.u,L.k,n)}
 };
@@ -815,6 +1007,7 @@ function tuDia(){
     const addP=(c,r)=>{if(!r.predialFecha)return;const dias=dayDiff(hoy,r.predialFecha);if(dias<=30)items.push({k:'predial',c,r,n:r.nombre,dias,done:false})};
     list('predios').forEach(r=>addP('predios',r));list('propiedades').forEach(r=>addP('propiedades',r));
   }
+  for(const m of list('mantenimientos')){if(m.estado==='hecho')continue;const dias=dayDiff(hoy,m.fecha);if(dias<=3)items.push({k:'mant',m,dias,done:false})}
   const props=list('propiedades'),gs=list('gastos');
   for(const s of Object.keys(SERV)){const ps=props.filter(p=>hasServ(p,s));if(!ps.length)continue;const n=ps.filter(p=>gs.some(g=>g.propiedadId===p.id&&g.servicio===s&&g.mes===M)).length;items.push({k:'recibo',s,n,total:ps.length,done:n===ps.length})}
   const dg=x=>x.k==='aviso'?x.st.dias:x.dias!=null?x.dias:500;items.sort((a,b)=>(a.done-b.done)||(dg(a)-dg(b)));
@@ -831,6 +1024,8 @@ function itemHtml(x){
     return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.home}</div><div class="it"><b>Predial de ${esc(x.n)}</b><span>${x.r.predialMonto?money(x.r.predialMonto)+' · ':''}${when}</span></div><button class="btn sm" data-a="pred-pag" data-c="${x.c}" data-id="${x.r.id}">${I.check} Ya pagué</button></div>`}
   if(x.k==='contrato'){const late=x.dias<0;const p=prop(x.t.propiedadId)||{};const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.t.fechaFin)+')';
     return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.note}</div><div class="it"><b>Contrato de ${esc(firstName(x.t.nombre))}</b><span>${esc(p.nombre||'')} · ${when}</span></div><button class="btn sm" data-a="renov" data-id="${x.t.id}">Renovar</button></div>`}
+  if(x.k==='mant'){const late=x.dias<0;const when=late?'Era hace '+dd(-x.dias):x.dias===0?'Hoy':x.dias===1?'Mañana':'En '+dd(x.dias);
+    return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.wrench}</div><div class="it"><b>Mantenimiento: ${esc(x.m.motivo)}</b><span>${esc(mantNombre(x.m))} · ${when}</span></div><button class="btn sm" data-a="mdet" data-id="${x.m.id}">Abrir</button></div>`}
   if(x.k==='aviso'){
     const p=prop(x.t.propiedadId),late=x.st.dias<0;
     const when=late?`Atrasado ${-x.st.dias} día${x.st.dias===-1?'':'s'}`:x.st.dias===0?'Vence hoy':`Vence en ${x.st.dias} día${x.st.dias===1?'':'s'} (${fechaLarga(x.st.due)})`;
@@ -846,9 +1041,12 @@ function feed(){
   for(const x of list('pagos')){const t=get('inquilinos',x.inquilinoId)||S.data.inquilinos[x.inquilinoId]||{};out.push({c:'pagos',r:x,ic:'cash',cls:'s-pago',t:'Pago de '+(t.nombre||'—'),s:'Renta de '+mesLargo(x.mes)+' · '+fechaLarga(x.fecha),amt:money(x.monto),f:'pagos',d:x.fecha||'',m:(x.fecha||'').slice(0,7),pid:t.propiedadId})}
   for(const t of list('inquilinos')){const p=prop(t.propiedadId)||S.data.propiedades[t.propiedadId]||{};out.push({c:'inquilinos',r:t,ic:t.estado==='activo'?'userPlus':'userMinus',cls:'s-inq',t:(t.estado==='activo'?'Alta: ':'Baja: ')+t.nombre,s:(p.nombre||'')+' · '+(t.estado==='activo'?'desde el '+fechaLarga(t.fechaInicio):'salió el '+fechaLarga(t.fechaBaja)),amt:'',f:'inquilinos',d:(t.estado==='activo'?t.fechaInicio:t.fechaBaja)||'',m:((t.estado==='activo'?t.fechaInicio:t.fechaBaja)||'').slice(0,7),pid:t.propiedadId})}
   for(const a of list('avisos')){const t=get('inquilinos',a.inquilinoId)||S.data.inquilinos[a.inquilinoId]||{};out.push({c:'avisos',r:a,ic:'chat',cls:'s-aviso',t:'Aviso a '+(t.nombre||'—'),s:ETAPA_TXT[a.etapa]+' · '+fechaLarga(a.fecha),amt:'',f:'avisos',d:a.fecha||'',m:(a.fecha||'').slice(0,7),pid:t.propiedadId})}
+  for(const m of list('mantenimientos')){out.push({c:'mantenimientos',r:m,ic:'wrench',cls:'s-mant',t:'Mantenimiento · '+mantNombre(m),s:m.motivo+' · '+fechaLarga(m.fecha)+(m.estado==='hecho'?'':' · pendiente'),amt:(m.costo===''||m.costo==null)?'':money(m.costo),f:'mant',d:m.fecha||'',m:String(m.fecha||'').slice(0,7),pid:'',pids:mantProps(m).map(x=>x.id)})}
+  for(const i of list('inventario')){if(i.estado!=='retirado')continue;const p=prop(i.propiedadId)||S.data.propiedades[i.propiedadId]||{};out.push({c:'inventario',r:i,ic:'pkg',cls:'s-inv',t:'Se retiró: '+i.nombre,s:(p.nombre||'')+(i.motivoRetiro?' · '+i.motivoRetiro:'')+' · '+fechaLarga(i.fechaRetiro),amt:'',f:'inv',d:i.fechaRetiro||'',m:String(i.fechaRetiro||'').slice(0,7),pid:i.propiedadId})}
+  for(const v of list('revisiones')){const t=get('inquilinos',v.inquilinoId)||S.data.inquilinos[v.inquilinoId]||{};const p=prop(v.propiedadId)||S.data.propiedades[v.propiedadId]||{};const n=String(v.resultado||'').split('|').filter(x=>x&&!x.endsWith('=ok')).length;out.push({c:'revisiones',r:v,ic:'pkg',cls:'s-inv',t:'Revisión de inventario · '+(p.nombre||''),s:'Salida de '+(t.nombre||'—')+' · '+(n?n+' con observaciones':'todo en orden'),amt:'',f:'inv',d:v.fecha||'',m:String(v.fecha||'').slice(0,7),pid:v.propiedadId})}
   return out.sort((a,b)=>b.r.updatedAt-a.r.updatedAt);
 }
-function feedRow(x){return`<button class="li" data-a="edit" data-c="${x.c}" data-id="${x.r.id}"><span class="ic ${x.cls}">${I[x.ic]}</span><span class="it"><b>${esc(x.t)}</b><span>${esc(x.s)}</span></span><span class="amt">${x.amt}</span></button>`}
+function feedRow(x){return`<button class="li" data-a="${x.c==='mantenimientos'?'mdet':x.c==='inventario'?'invitem':'edit'}" data-c="${x.c}" data-id="${x.r.id}"><span class="ic ${x.cls}">${I[x.ic]}</span><span class="it"><b>${esc(x.t)}</b><span>${esc(x.s)}</span></span><span class="amt">${x.amt}</span></button>`}
 
 const VIEWS={
   inicio(){
@@ -865,6 +1063,7 @@ const VIEWS={
       <button class="act a-pago" data-a="pago"><span class="ic">${I.cash}</span><span>Pago de renta</span></button>
       ${isOwner()?`<button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino</span></button>
       <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja</span></button>`:''}
+      <button class="act a-mant" data-a="mant"><span class="ic">${I.wrench}</span><span>Mantenimiento</span></button>
     </div></section>`;
     h+=`<section><button class="dia" data-a="tab" data-t="hist"><span class="ic">${I.list}</span><span class="it"><b>Historial</b><span>Revisa tus recibos, pagos y avisos</span></span><span class="chev">${I.back}</span></button></section>`;
     return h;
@@ -872,7 +1071,7 @@ const VIEWS={
   props(){
     const ps=propsOrd();const occ=ps.filter(p=>inqDe(p.id)).length;
     const card=p=>{const t=inqDe(p.id);const st=t?estadoRenta(t):null;
-      return`<button class="pcard" data-a="pdet" data-id="${p.id}"><div class="ph"><span class="ptype">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${t?'<span class="chip info">Rentada</span>':'<span class="chip off">Desocupada</span>'}</div><div class="pn">${esc(p.nombre)}</div><div class="pt">${t?esc(t.nombre)+' · '+money(t.renta)+' al mes':'Sin inquilino · renta sugerida '+money(p.renta)}</div>${t?`<div class="ps">${chipRenta(st)}${chipContrato(t)}</div>`:''}</button>`};
+      return`<button class="pcard" data-a="pdet" data-id="${p.id}"><div class="ph"><span class="ptype">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${t?'<span class="chip info">Rentada</span>':'<span class="chip off">Desocupada</span>'}</div><div class="pn">${esc(p.nombre)}</div><div class="pt">${t?esc(t.nombre)+' · '+money(t.renta)+' al mes':'Sin inquilino · renta sugerida '+money(p.renta)}</div>${t?`<div class="ps">${chipRenta(st)}${chipContrato(t)}</div>`:''}${invDe(p.id,'en').length?`<div class="small muted" style="margin-top:8px">${invDe(p.id,'en').length} en inventario</div>`:''}</button>`};
     const predios=list('predios').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
     const solos=ps.filter(p=>!p.predioId||!get('predios',p.predioId));
     let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
@@ -886,11 +1085,11 @@ const VIEWS={
     return h+'</section>';
   },
   hist(){
-    const fs=[['todo','Todo'],['gastos','Recibos'],['pagos','Pagos'],['inquilinos','Inquilinos'],['avisos','Avisos']];
+    const fs=[['todo','Todo'],['gastos','Recibos'],['pagos','Pagos'],['inquilinos','Inquilinos'],['avisos','Avisos'],['mant','Mantenimientos'],['inv','Inventario']];
     const base=feed();
     let all=base;
     if(HF!=='todo')all=all.filter(x=>x.f===HF);
-    if(HPR!=='todo')all=all.filter(x=>x.pid===HPR);
+    if(HPR!=='todo')all=all.filter(x=>x.pid===HPR||(x.pids&&x.pids.includes(HPR)));
     if(HP==='dia'&&HV)all=all.filter(x=>x.d===HV);
     if(HP==='mes'&&HV)all=all.filter(x=>x.m===HV);
     if(HP==='anio'&&HV)all=all.filter(x=>(x.m||'').slice(0,4)===HV);
@@ -926,6 +1125,11 @@ function pdet(id){
   }
   if(isOwner()){const dpr=predioDe(p);const src=(dpr&&(dpr.predialMonto||dpr.predialFecha))?{r:dpr,c:'predios'}:((p.predialFecha||p.predialMonto)?{r:p,c:'propiedades'}:null);
     if(src)h+=`<div class="box"><h3>Predial${src.c==='predios'?' del edificio':''}</h3><div class="muted">${src.r.predialMonto?money(src.r.predialMonto)+' al año':''}${src.r.predialMonto&&src.r.predialFecha?' · ':''}${src.r.predialFecha?'vence el '+fechaCompleta(src.r.predialFecha):''}</div>${src.r.predialPagado?`<div class="small muted">Último pago: ${fechaCompleta(src.r.predialPagado)}</div>`:''}${src.r.predialFecha?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="pred-pag" data-c="${src.c}" data-id="${src.r.id}">${I.check} Ya pagué el predial</button>`:''}</div>`}
+  {const inv=invDe(id,'en'),ret=invDe(id,'retirado');const rv=list('revisiones').filter(x=>x.propiedadId===id).sort((a,b)=>a.fecha<b.fecha?1:-1)[0];
+    const row=i=>`<button class="li" data-a="invitem" data-id="${i.id}"><span class="ic s-inv">${I.pkg}</span><span class="it"><b>${esc(i.nombre)}</b><span>${esc(i.estado==='retirado'?'Retirado el '+fechaLarga(i.fechaRetiro)+(i.motivoRetiro?' · '+i.motivoRetiro:''):(i.descripcion||'Sin descripción'))}</span></span><span class="chev">${I.back}</span></button>`;
+    h+=`<div class="box"><div class="ph"><h3>Inventario</h3><span class="chip off">${inv.length} artículo${inv.length===1?'':'s'}</span></div>`+(inv.length?inv.map(row).join(''):'<p class="muted">Aún no hay nada anotado. Agrega la TV, la cama, el closet…</p>')+`<div class="sep" style="height:10px"></div><button class="btn full" data-a="invadd" data-id="${id}">${I.plus} Agregar artículo</button>`+(ret.length?`<details class="more"><summary class="btn sm">Retirados (${ret.length})</summary>${ret.map(row).join('')}</details>`:'')+(rv?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="edit" data-c="revisiones" data-id="${rv.id}">${I.list} Última revisión al salir un inquilino · ${fechaLarga(rv.fecha)}</button>`:'')+'</div>'}
+  {const mts=list('mantenimientos').filter(m=>mantProps(m).some(x=>x.id===id)).sort((a,b)=>a.fecha<b.fecha?1:-1).slice(0,3);
+    h+=`<div class="box"><div class="ph"><h3>Mantenimientos</h3></div>`+(mts.length?mts.map(m=>`<button class="li" data-a="mdet" data-id="${m.id}"><span class="ic s-mant">${I.wrench}</span><span class="it"><b>${esc(m.motivo)}</b><span>${fechaLarga(m.fecha)} · ${m.estado==='hecho'?'terminado':'pendiente'}</span></span><span class="amt">${m.costo!==''&&m.costo!=null?money(m.costo):''}</span></button>`).join(''):'<p class="muted">Sin mantenimientos registrados.</p>')+`<div class="sep" style="height:10px"></div><button class="btn full" data-a="mant-p" data-id="${id}">${I.plus} Registrar mantenimiento</button></div>`}
   const gs=list('gastos').filter(g=>g.propiedadId===id);
   const meses=[...new Set(gs.map(g=>g.mes))].sort().slice(-4);
   if(meses.length){
@@ -951,7 +1155,7 @@ function cambios(mes){
   }
   return out;
 }
-function totalMes(m,solo){const r={luz:0,agua:0,gas:0};for(const g of list('gastos'))if(g.mes===m&&(!solo||solo.has(g.propiedadId+'|'+g.servicio)))r[g.servicio]+=+g.monto;r.total=r.luz+r.agua+r.gas;return r}
+function totalMes(m,solo){const r={luz:0,agua:0,gas:0,internet:0};for(const g of list('gastos'))if(g.mes===m&&(!solo||solo.has(g.propiedadId+'|'+g.servicio)))r[g.servicio]+=+g.monto;r.total=r.luz+r.agua+r.gas+r.internet;return r}
 function rentasMes(m){
   let esperado=0,cobrado=0;const falta=[];
   for(const t of list('inquilinos')){if(!prop(t.propiedadId))continue;const due=dueDate(m,Number(t.diaPago)||1);
@@ -965,7 +1169,7 @@ function chart(endMes){
   const W=600,H=230,bw=60,gap=(W-40-bw*6)/5;
   let g='';
   ms.forEach((m,i)=>{const x=20+i*(bw+gap);let y=H-34;
-    for(const s of['luz','agua','gas']){const h=tots[i][s]/max*(H-80);if(h>0){y-=h;g+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${SCOL[s]}" rx="3"/>`}}
+    for(const s of Object.keys(SERV)){const h=tots[i][s]/max*(H-80);if(h>0){y-=h;g+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${SCOL[s]}" rx="3"/>`}}
     if(tots[i].total)g+=`<text x="${x+bw/2}" y="${y-8}" text-anchor="middle" font-size="17" font-weight="700" fill="#0F2340">${Math.round(tots[i].total/100)/10}k</text>`;
     g+=`<text x="${x+bw/2}" y="${H-10}" text-anchor="middle" font-size="18" fill="${m===endMes?'#1A4772':'#4A5B75'}" font-weight="${m===endMes?800:500}">${mesCorto(m)}</text>`});
   return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Gastos de servicios de los últimos 6 meses"><line x1="10" x2="${W-10}" y1="${H-34}" y2="${H-34}" stroke="#DCE4EF" stroke-width="2"/>${g}</svg><div class="legend">${Object.keys(SERV).map(s=>`<span><i style="background:${SCOL[s]}"></i>${SERV[s].n}</span>`).join('')}</div>`;
@@ -983,8 +1187,10 @@ function resumen(){
   const pct=rm.esperado?Math.min(100,Math.round(rm.cobrado/rm.esperado*100)):0;
   let h=`<div class="mnav"><button class="btn sm" data-a="mprev" aria-label="Mes anterior">${I.back}</button><b>${mesLargo(m)}</b><button class="btn sm" data-a="mnext" aria-label="Mes siguiente" ${m>=curMonth()?'disabled style="opacity:.4"':''}><span style="transform:rotate(180deg);display:flex">${I.back}</span></button></div><div class="grid2">`;
   h+=`<div class="card"><div class="kl">Rentas cobradas</div><div class="kpi">${money(rm.cobrado)}</div><div class="muted">de ${money(rm.esperado)} esperados</div><div class="bar"><i style="width:${pct}%"></i></div><p class="phrase">${rm.falta.length?'Falta: '+rm.falta.map(t=>esc(firstName(t.nombre))+' ('+esc(prop(t.propiedadId).nombre)+')').join(', '):'Todos pagaron este mes.'}</p></div>`;
-  h+=`<div class="card"><div class="kl">Servicios del mes</div><div class="kpi">${money(tm.total)}</div><p class="phrase">${dif==null?'Aún no hay mes anterior para comparar.':Math.abs(dif)<0.03?'Casi igual que el mes pasado.':(dif>0?`<span class="up">Subió ${Math.round(dif*100)}%</span>`:`<span class="down">Bajó ${Math.round(-dif*100)}%</span>`)+' contra '+MESES[Number(addMonths(m,-1).slice(5))-1]+' en los mismos recibos ('+money(tp.total)+').'}</p><p class="muted small">Luz ${money(tm.luz)} · Agua ${money(tm.agua)} · Gas ${money(tm.gas)}</p></div>`;
-  h+=`<div class="card"><div class="kl">Te queda</div><div class="kpi">${money(rm.cobrado-tm.total)}</div><p class="phrase">Rentas cobradas menos recibos de servicios de ${MESES[Number(m.slice(5))-1]}.</p></div>`;
+  h+=`<div class="card"><div class="kl">Servicios del mes</div><div class="kpi">${money(tm.total)}</div><p class="phrase">${dif==null?'Aún no hay mes anterior para comparar.':Math.abs(dif)<0.03?'Casi igual que el mes pasado.':(dif>0?`<span class="up">Subió ${Math.round(dif*100)}%</span>`:`<span class="down">Bajó ${Math.round(-dif*100)}%</span>`)+' contra '+MESES[Number(addMonths(m,-1).slice(5))-1]+' en los mismos recibos ('+money(tp.total)+').'}</p><p class="muted small">${Object.keys(SERV).filter(s=>s!=='internet'||tm.internet>0).map(s=>SERV[s].n+' '+money(tm[s])).join(' · ')}</p></div>`;
+  const mm=mantMes(m);
+  if(mm.n)h+=`<div class="card"><div class="kl">Mantenimientos</div><div class="kpi">${money(mm.total)}</div><p class="phrase">${mm.n} mantenimiento${mm.n>1?'s':''} en ${MESES[Number(m.slice(5))-1]}.</p></div>`;
+  h+=`<div class="card"><div class="kl">Te queda</div><div class="kpi">${money(rm.cobrado-tm.total-mm.total)}</div><p class="phrase">Rentas cobradas menos servicios${mm.n?' y mantenimientos':''} de ${MESES[Number(m.slice(5))-1]}.</p></div>`;
   h+=`<div class="card"><div class="kl">Para el próximo mes</div><div class="kpi">${proyN?money(proy):'—'}</div><p class="phrase">${proyN?'Es lo que normalmente pagas de servicios, según tus últimos recibos.':'Necesito al menos 2 meses de recibos para calcularlo.'}</p></div>`;
   h+='</div><div class="sep"></div>';
   h+=`<section class="card"><div class="kl">Lo que cambió</div><h2 style="font-size:22px;margin:4px 0 8px">${big.length?big.length+' recibo'+(big.length>1?'s':'')+' fuera de lo normal':'Todo dentro de lo normal'}</h2>`;
@@ -1019,10 +1225,10 @@ function ajustes(){
   sheet(h);
 }
 function plantillas(){
-  const c=cfg();const lab={p15:'15 días antes',p10:'10 días antes',p3:'3 días antes',venc:'Cuando ya venció',gen:'Mensaje de renta del mes (botón de la propiedad)'};
-  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {propietario}</p>
+  const c=cfg();const lab={p15:'15 días antes',p10:'10 días antes',p3:'3 días antes',venc:'Cuando ya venció',gen:'Mensaje de renta del mes (botón de la propiedad)',pago:'Al confirmar que recibiste un pago de renta',mant:'Aviso de mantenimiento',mantfin:'Cuando termina el mantenimiento'};
+  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {mes} {propietario}. En mantenimiento también {cuando} {motivo} {corte} {restab}.</p>
     <label class="f" for="pl_prop">¿Con qué nombre firmas?</label><input class="inp" id="pl_prop" maxlength="60" value="${esc(c.propietario)}" placeholder="Ej. Lic. Carrera">
-    <label class="f" for="pl_neg">Nombre del negocio (opcional)</label><input class="inp" id="pl_neg" maxlength="80" value="${esc(c.negocio)}">`;
+    <label class="f" for="pl_neg">Nombre del negocio (opcional)</label><input class="inp" id="pl_neg" maxlength="80" value="${esc(c.negocio)}"><label class="f" for="pl_tel">Tu WhatsApp (10 dígitos)</label><input class="inp" id="pl_tel" inputmode="tel" maxlength="14" value="${esc(c.telPropietario)}"><p class="hint">A este número llega el aviso cuando alguien retira algo del inventario.</p>`;
   for(const k of Object.keys(DEF_PLANT))h+=`<label class="f" for="pl_${k}">${lab[k]}</label><textarea class="inp" id="pl_${k}" maxlength="500">${esc(c.plantillas[k])}</textarea>`;
   const t=activos()[0];
   if(t)h+=`<label class="f">Así le llega a ${esc(firstName(t.nombre))} (3 días antes):</label><div class="waprev">${esc(mensaje(t,estadoRenta(t)||{due:today(),dias:3},'3'))}</div>`;
@@ -1085,7 +1291,7 @@ function demoState(){
   let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
   const M=curMonth(),hoy=today(),d=Number(hoy.slice(8));
   const clamp=x=>Math.max(1,Math.min(28,x));
-  const P=[['p1','Depto 1 · Madero','Departamento',6500,clamp(d-4),'luz,agua,gas'],['p2','Depto 2 · Madero','Departamento',6800,clamp(d+2),'luz,agua,gas'],['p3','Casa Jardines del Moral','Casa',12000,1,'luz,agua,gas'],['p4','Casa Campestre','Casa',15500,clamp(d+9),'luz,agua,gas'],['p5','Local Centro','Local',9000,1,'luz,agua']];
+  const P=[['p1','Depto 1 · Madero','Departamento',6500,clamp(d-4),'luz,agua,gas'],['p2','Depto 2 · Madero','Departamento',6800,clamp(d+2),'luz,agua,gas'],['p3','Casa Jardines del Moral','Casa',12000,1,'luz,agua,gas,internet'],['p4','Casa Campestre','Casa',15500,clamp(d+9),'luz,agua,gas'],['p5','Local Centro','Local',9000,1,'luz,agua']];
   const ts=Date.now()-864e5*30;let n=0;const mk=o=>Object.assign({eliminado:0,updatedAt:ts+(n++)*60000},o);
   const PX={p1:{predioId:'e1',interior:'1'},p2:{predioId:'e1',interior:'2'},p3:{predialMonto:5400,predialFecha:addDays(hoy,22)}};
   for(const p of P){const x=PX[p[0]]||{};st.data.propiedades[p[0]]=mk(Object.assign({id:p[0],nombre:x.interior?'Edificio Madero · '+x.interior:p[1],tipo:p[2],renta:p[3],diaPago:p[4],servicios:p[5],direccion:'León, Gto.',notas:''},x))}
@@ -1093,13 +1299,17 @@ function demoState(){
   const T=[['t1','p1','Ana López Ruiz','4775550101','2025-08-01'],['t2','p2','Jorge Ramírez','4775550102','2026-02-10'],['t3','p3','Lucía Hernández','4775550103','2024-11-01'],['t4','p4','Roberto Sánchez','4775550104','2025-05-15']];
   for(const t of T){const p=P.find(x=>x[0]===t[1]);st.data.inquilinos[t[0]]=mk({id:t[0],propiedadId:t[1],nombre:t[2],telefono:t[3],renta:p[3],diaPago:p[4],fechaInicio:t[4],fechaFin:({t1:addDays(hoy,34),t2:addDays(hoy,300),t3:addDays(hoy,200),t4:addDays(hoy,150)})[t[0]],fechaBaja:'',estado:'activo',notas:''})}
   st.data.inquilinos.t0=mk({id:'t0',propiedadId:'p5',nombre:'Mario Torres',telefono:'4775550100',renta:9000,diaPago:1,fechaInicio:'2025-01-01',fechaBaja:addMonths(M,-1)+'-30',estado:'baja',notas:''});
-  const base={luz:[620,580,1450,1800,900],agua:[260,240,410,480,180],gas:[380,350,520,600,0]};
+  const base={luz:[620,580,1450,1800,900],agua:[260,240,410,480,180],gas:[380,350,520,600,0],internet:[0,0,599,0,0]};
   for(let i=-6;i<=0;i++){const m=addMonths(M,i);
-    P.forEach((p,j)=>{for(const s of['luz','agua','gas']){if(!p[5].includes(s))continue;if(i===0&&!(s==='luz'&&j<3))continue;
+    P.forEach((p,j)=>{for(const s of Object.keys(SERV)){if(!p[5].includes(s))continue;if(i===0&&!(s==='luz'&&j<3))continue;
       let v=base[s][j]*(0.92+rnd()*0.16);if(i===0&&j===2&&s==='luz')v=base.luz[2]*1.38;if(i===0&&j===1&&s==='luz')v=base.luz[1]*0.97;if(i===-1&&j===1&&s==='agua')v=base.agua[1]*0.7;
       const id='g'+j+s+(i+10);st.data.gastos[id]=mk({id,propiedadId:p[0],servicio:s,mes:m,monto:Math.round(v/10)*10,nota:''})}})}
   for(const t of T){const p=P.find(x=>x[0]===t[1]);for(let i=-6;i<=0;i++){const m=addMonths(M,i);const due=dueDate(m,p[4]);if(due<t[4])continue;if(due>hoy)continue;if(t[0]==='t1'&&i===0)continue;
     const id='y'+t[0]+(i+10);st.data.pagos[id]=mk({id,inquilinoId:t[0],propiedadId:t[1],mes:m,fecha:due,monto:p[3],nota:''})}}
+  st.data.mantenimientos.m1=mk({id:'m1',destino:'e:e1',motivo:'Reparación del tinaco en la azotea',fecha:addDays(hoy,1),horario:'de 10 a 2 pm',servicios:'agua',costo:1800,estado:'programado',avisados:'',restablecido:'',nota:''});
+  st.data.mantenimientos.m2=mk({id:'m2',destino:'p:p4',motivo:'Cambio de boiler',fecha:addDays(hoy,-20),horario:'',servicios:'gas',costo:3200,estado:'hecho',avisados:'t4',restablecido:addDays(hoy,-20),nota:''});
+  [['p1','TV','Pantalla de 43 pulgadas, con control'],['p1','Cama matrimonial','Con colchón en buen estado'],['p1','Base de cama','Madera, color nogal'],['p1','Closet','Closet de madera con 3 puertas'],['p1','Refrigerador','Blanco, 14 pies'],['p3','Estufa','De 6 quemadores'],['p3','Lavadora','Marca Whirlpool, 18 kg']].forEach((x,k)=>{st.data.inventario['i'+k]=mk({id:'i'+k,propiedadId:x[0],nombre:x[1],descripcion:x[2],estado:'en',fechaRetiro:'',motivoRetiro:''})});
+  st.data.inventario.ir=mk({id:'ir',propiedadId:'p3',nombre:'Sillón de sala',descripcion:'Tres piezas, gris',estado:'retirado',fechaRetiro:addDays(hoy,-40),motivoRetiro:'Se lo llevó el inquilino anterior'});
   st.data.avisos.a1=mk({id:'a1',inquilinoId:'t4',mes:M,etapa:'15',fecha:addMonths(M,0)+'-'+String(Math.max(1,d-6)).padStart(2,'0')});
   st.data.comentarios.c1=mk({id:'c1',clave:'p3|luz|'+M,texto:'Instalaron un minisplit en la recámara principal.',fecha:hoy});
   return st;
