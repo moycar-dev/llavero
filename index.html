@@ -288,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.2.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.3.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
@@ -403,7 +403,10 @@ function prop(id){return get('propiedades',id)}
 function activos(){return list('inquilinos').filter(t=>t.estado==='activo'&&prop(t.propiedadId))}
 function inqDe(pid){return list('inquilinos').find(t=>t.propiedadId===pid&&t.estado==='activo')}
 function hasServ(p,s){return String(p.servicios||'luz,agua,gas').split(',').includes(s)}
-function isOwner(){return DEMO||!S.conn||S.rol==='propietario'}
+function isOwner(){return DEMO||!S.conn||S.rol==='propietario'||S.rol==='admin'}
+function isAdmin(){return !DEMO&&!!S.conn&&S.rol==='admin'}
+/* WhatsApp: solo propietario y administrador */
+function canWA(){return isOwner()}
 function canEdit(c,r){if(isOwner())return true;return['gastos','pagos','avisos','mantenimientos','inventario'].includes(c)&&(!r||r.por===S.device||!r.por)}
 function cfg(){const c=S.config||{};return{negocio:c.negocio||'',propietario:c.propietario||'',telPropietario:c.telPropietario||'',plantillas:Object.assign({},DEF_PLANT,c.plantillas||{}),v:c.v||1,updatedAt:c.updatedAt||0}}
 function propsOrd(){return list('propiedades').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}))}
@@ -444,7 +447,7 @@ function plant(k,v){return cfg().plantillas[k].replace(/\{(\w+)\}/g,(m,x)=>x in 
 function waUrl(tel,txt){return'https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(txt)}
 function lista(a){a=a.map(x=>x.toLowerCase());return a.length>1?a.slice(0,-1).join(', ')+' y '+a[a.length-1]:a.join('')}
 function mensajePago(t,pg){const p=prop(t.propiedadId)||{};return plant('pago',{nombre:firstName(t.nombre),mes:MESES[Number(String(pg.mes).slice(5))-1]||'',propiedad:p.nombre||'',monto:money(pg.monto),propietario:propietarioNombre()})}
-function enviarPagoWA(pg){const t=get('inquilinos',pg.inquilinoId);if(!t)return;const tel=telWa(t.telefono);if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}window.open(waUrl(tel,mensajePago(t,pg)),'_blank','noopener')}
+function enviarPagoWA(pg){if(!canWA())return;const t=get('inquilinos',pg.inquilinoId);if(!t)return;const tel=telWa(t.telefono);if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}window.open(waUrl(tel,mensajePago(t,pg)),'_blank','noopener')}
 const mDest=m=>{const d=String(m.destino||'');return{k:d.slice(0,1),id:d.slice(2)}};
 function mantProps(m){const{k,id}=mDest(m);return k==='e'?list('propiedades').filter(p=>p.predioId===id):[prop(id)].filter(Boolean)}
 function mantBase(m){const{k,id}=mDest(m);return k==='e'?((get('predios',id)||S.data.predios[id]||{}).nombre||'Edificio'):((prop(id)||S.data.propiedades[id]||{}).nombre||'Propiedad')}
@@ -497,7 +500,9 @@ async function sync(manual){
   for(const k of S.pend.slice(0,400)){const i=k.indexOf(':'),c=k.slice(0,i),id=k.slice(i+1);const r=cleanRec(c,S.data[c][id]);if(r){ops.push({col:c,rec:r});sent[k]=r.updatedAt;inflight.add(k)}}
   const cfgSent=S.configDirty;
   const body={action:'push',key:S.conn.k,device:S.device,deviceName:S.deviceName||'Sin nombre',ops};
-  if(cfgSent&&S.rol==='propietario')body.config=cfg();
+  if(cfgSent&&isOwner())body.config=cfg();
+  if(isAdmin()&&S.dispOps&&S.dispOps.length)body.dispOps=S.dispOps.slice(0,10);
+  const dsent=body.dispOps?body.dispOps.length:0;
   try{
     const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),30000);
     const res=await fetch(S.conn.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl.signal,redirect:'follow',credentials:'omit'});
@@ -510,7 +515,7 @@ async function sync(manual){
       for(const k of S.pend){const i=k.indexOf(':'),c=k.slice(0,i),id=k.slice(i+1);const loc=S.data[c][id];
         if(k in sent&&(!loc||loc.updatedAt===sent[k]))continue;
         if(loc){nd[c][id]=loc;keep.push(k)}}
-      S.data=nd;S.pend=keep;S.rol=j.rol;
+      S.data=nd;S.pend=keep;S.rol=j.rol;S.disp=j.rol==='admin'?(j.dispositivos||[]):null;if(dsent)S.dispOps=S.dispOps.slice(dsent);
       if(S.configDirty===cfgSent){S.configDirty=0;if(j.config)S.config=j.config}
       S.lastSync=Date.now();S.status='ok';S.err=null;
       if(j.rejected&&j.rejected.length&&manual!==false)toast('Algunos cambios no se permitieron con tu tipo de acceso',null,true);
@@ -592,9 +597,9 @@ FLOWS.pago={
 FLOWS.pago.ok=function(){
   const pg=F.pg,t=get('inquilinos',pg.inquilinoId)||{};
   sheet(`<div class="shead"><span></span><button class="btn sm" data-a="close">${I.x} Cerrar</button></div><h2 class="q">Pago guardado</h2><div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span><span class="chip off">${money(pg.monto)} · ${mesLargo(pg.mes)}</span></div>
-    <label class="f">Mensaje de confirmación para ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensajePago(t,pg))}</div>
+    ${canWA()?`<label class="f">Mensaje de confirmación para ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensajePago(t,pg))}</div>`:''}
     ${t.telefono?'':'<p class="hint">Este inquilino no tiene WhatsApp registrado.</p>'}
-    <div class="sep"></div><button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Confirmar pago por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`);
+    <div class="sep"></div>${canWA()?`<button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Confirmar pago por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`:`<p class="hint">El propietario es quien envía la confirmación por WhatsApp.</p><button class="btn pri big full" data-a="close">Listo</button>`}`);
 };
 /* Alta de inquilino */
 FLOWS.alta={
@@ -742,13 +747,13 @@ FLOWS.mant={
   det(){
     const m=get('mantenimientos',F.id);if(!m)return closeSheet();
     const ts=mantInq(m),av=String(m.avisados||'').split(','),hecho=m.estado==='hecho',sv=mantSv(m);
-    const fila=(t,fin)=>{const ya=!fin&&av.includes(t.id);return`<div class="tn"><span class="it"><b>${esc(t.nombre)}</b><span>${esc((prop(t.propiedadId)||{}).nombre||'')}${ya?' · ya avisado':''}</span></span><button class="btn sm wa" data-a="${fin?'m-wafin':'m-wa'}" data-id="${t.id}">${I.chat} ${ya?'Reenviar':'Avisar'}</button></div>`};
+    const fila=(t,fin)=>{const ya=!fin&&av.includes(t.id);return`<div class="tn"><span class="it"><b>${esc(t.nombre)}</b><span>${esc((prop(t.propiedadId)||{}).nombre||'')}${ya?' · ya avisado':''}</span></span>${canWA()?`<button class="btn sm wa" data-a="${fin?'m-wafin':'m-wa'}" data-id="${t.id}">${I.chat} ${ya?'Reenviar':'Avisar'}</button>`:''}</div>`};
     const nAv=ts.filter(t=>av.includes(t.id)).length;
-    const paso=hecho?['okk',I.check,'Terminado. Si quieres, avisa a los inquilinos que ya quedó.']:!ts.length?['',2,'No hay inquilinos que avisar. Cuando terminen, toca «Ya se terminó».']:nAv<ts.length?['',1,'Siguiente paso: avisa a los inquilinos'+(ts.length>1?' ('+nAv+' de '+ts.length+' avisados).':'.')]:['okk',2,'Todos avisados. Cuando terminen el trabajo, toca «Ya se terminó».'];
+    const paso=!canWA()?(hecho?['okk',I.check,'Terminado.']:['',1,'Cuando terminen el trabajo, toca «Ya se terminó». El propietario avisa a los inquilinos.']):hecho?['okk',I.check,'Terminado. Si quieres, avisa a los inquilinos que ya quedó.']:!ts.length?['',2,'No hay inquilinos que avisar. Cuando terminen, toca «Ya se terminó».']:nAv<ts.length?['',1,'Siguiente paso: avisa a los inquilinos'+(ts.length>1?' ('+nAv+' de '+ts.length+' avisados).':'.')]:['okk',2,'Todos avisados. Cuando terminen el trabajo, toca «Ya se terminó».'];
     let h=shead(esc(m.motivo),`<span class="chip off">${esc(mantNombre(m))}</span><span class="chip ${hecho?'ok':'warn'}">${hecho?'Terminado':'Pendiente'}</span>`)+`<div class="next ${paso[0]}"><span class="n">${paso[1]}</span><span>${paso[2]}</span></div>`;
     h+=`<div class="box"><div class="muted">${fechaLarga(m.fecha)} ${String(m.fecha).slice(0,4)}${m.horario?' · '+esc(m.horario):''}</div><div class="ps" style="margin-top:8px">${sv.length?sv.map(servBadge).join(''):'<span class="chip off">No se corta ningún servicio</span>'}</div>${m.costo!==''&&m.costo!=null?`<div class="sep" style="height:10px"></div><div class="muted">Costo</div><div class="kpi" style="font-size:28px">${money(m.costo)}</div>`:''}${m.nota?`<p class="muted small">${esc(m.nota)}</p>`:''}</div>`;
-    h+=`<div class="box"><h3>Avisar a los inquilinos</h3>`+(ts.length?`<p class="muted small">Se abre WhatsApp con el mensaje listo; tú solo das enviar, uno por uno.</p><div class="waprev">${esc(mensajeMant(ts[0],m,false))}</div>`+ts.map(t=>fila(t,false)).join(''):'<p class="muted">Ahora no hay inquilinos en este lugar.</p>')+'</div>';
-    if(hecho&&ts.length)h+=`<div class="box"><h3>Avisar que ya terminó</h3>`+ts.map(t=>fila(t,true)).join('')+'</div>';
+    if(canWA())h+=`<div class="box"><h3>Avisar a los inquilinos</h3>`+(ts.length?`<p class="muted small">Se abre WhatsApp con el mensaje listo; tú solo das enviar, uno por uno.</p><div class="waprev">${esc(mensajeMant(ts[0],m,false))}</div>`+ts.map(t=>fila(t,false)).join(''):'<p class="muted">Ahora no hay inquilinos en este lugar.</p>')+'</div>';
+    if(canWA()&&hecho&&ts.length)h+=`<div class="box"><h3>Avisar que ya terminó</h3>`+ts.map(t=>fila(t,true)).join('')+'</div>';
     if(!hecho)h+=`<button class="btn pri big full" data-a="m-done">${I.check} Ya se terminó</button><div class="sep"></div>`;
     h+=`<div class="row"><button class="btn" data-a="m-edit">${I.edit} Corregir</button>${isOwner()?`<button class="btn" data-a="m-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''}</div>`;
     sheet(h);
@@ -774,7 +779,7 @@ FLOWS.inv={
   },
   ret(){
     const i=get('inventario',F.id),p=prop(F.pid)||{};
-    sheet(shead('¿Retirar '+esc(i.nombre)+'?')+`<p class="muted">Se quita del inventario de ${esc(p.nombre||'la propiedad')}. ${isOwner()?'':'Después te dejo listo un WhatsApp para avisar al propietario.'}</p><label class="f" for="fmot">¿Por qué o a dónde se lleva? (opcional)</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Se lo lleva el inquilino"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="inv-retok">Sí, retirar</button>`);
+    sheet(shead('¿Retirar '+esc(i.nombre)+'?')+`<p class="muted">Se quita del inventario de ${esc(p.nombre||'la propiedad')}. ${isOwner()?'':'El propietario verá el cambio en la propiedad.'}</p><label class="f" for="fmot">¿Por qué o a dónde se lleva? (opcional)</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Se lo lleva el inquilino"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="inv-retok">Sí, retirar</button>`);
   },
   aviso(){
     const i=get('inventario',F.id)||{},c=cfg();
@@ -794,7 +799,7 @@ FLOWS.edit={
     else if(F.c==='revisiones'){const t=get('inquilinos',r.inquilinoId)||S.data.inquilinos[r.inquilinoId]||{};const pr=prop(r.propiedadId)||{};h=`<div class="box"><h3>Revisión de inventario</h3><div class="muted">${esc(pr.nombre||'')} · salida de ${esc(t.nombre||'')} · ${fechaLarga(r.fecha)}</div>${resItems(r.resultado)}${r.nota?`<p class="muted small">${esc(r.nota)}</p>`:''}</div>`}
     else if(F.c==='avisos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="box"><h3>Aviso a ${esc(t.nombre||'')}</h3><div class="muted">${ETAPA_TXT[r.etapa]} · ${mesLargo(r.mes)} · enviado el ${fechaLarga(r.fecha)}</div></div>`}
     const editable=!['avisos','revisiones'].includes(F.c);
-    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(F.c==='pagos'?`<button class="btn wa full" data-a="pg-wa" data-id="${r.id}">${I.chat} Enviar confirmación por WhatsApp</button><div class="sep"></div>`:'')+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
+    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(F.c==='pagos'&&canWA()?`<button class="btn wa full" data-a="pg-wa" data-id="${r.id}">${I.chat} Enviar confirmación por WhatsApp</button><div class="sep"></div>`:'')+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
   },
   del(){sheet(shead('¿Borrar este registro?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="e-delok">'+I.trash+' Sí, borrar</button>')}
 };
@@ -804,6 +809,7 @@ FLOWS.delprop={start(){F.step='c';this.c()},c(){const p=prop(F.id);sheet(shead('
 /* ---------- Acciones ---------- */
 function parseMonto(){const n=num(val('fmonto'));if(!(n>0)||n>10000000){showErr('Escribe una cantidad válida.');return null}return Math.round(n*100)/100}
 function abrirWA(t,etapa,registrar){
+  if(!canWA())return;
   const tel=telWa(t.telefono);
   if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Historial o Propiedades.',null,true);return}
   const st=estadoRenta(t);
@@ -885,12 +891,12 @@ const ACT={
     const nuevo=!F.id;commit([{c:'mantenimientos',r}],nuevo?'Mantenimiento guardado':'Cambios guardados');
     F={flow:'mant',hist:[],id:r.id,step:'det',destino:r.destino,msv:mantSv(r)};FLOWS.mant.det()},
   'm-edit'(){F.hist=['det'];F.step='form';FLOWS.mant.form()},
-  'm-wa'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
+  'm-wa'(d){if(!canWA())return;const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
     if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
     window.open(waUrl(tel,mensajeMant(t,m,false)),'_blank','noopener');
     const av=String(m.avisados||'').split(',').filter(Boolean);
     if(!av.includes(t.id)){av.push(t.id);put('mantenimientos',Object.assign({},m,{avisados:av.join(',')}));afterChange();redet()}},
-  'm-wafin'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
+  'm-wafin'(d){if(!canWA())return;const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
     if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
     window.open(waUrl(tel,mensajeMant(t,m,true)),'_blank','noopener')},
   'm-done'(){const m=get('mantenimientos',F.id);if(!m)return;put('mantenimientos',Object.assign({},m,{estado:'hecho',restablecido:today()}));afterChange();toast('Marcado como terminado');redet()},
@@ -907,8 +913,8 @@ const ACT={
   'inv-ret'(){go('ret')},
   'inv-retok'(){const i=get('inventario',F.id);if(!i)return closeSheet();const r=Object.assign({},i,{estado:'retirado',fechaRetiro:today(),motivoRetiro:val('fmot')});const pid=F.pid;
     commit([{c:'inventario',r}],i.nombre+' retirado del inventario');
-    if(isOwner())volverProp(pid);else{F={flow:'inv',hist:[],pid,id:i.id,step:'aviso'};FLOWS.inv.aviso()}},
-  'inv-wa'(){const i=get('inventario',F.id);if(i)window.open(waUrl(telWa(cfg().telPropietario),mensajeInv(i)),'_blank','noopener')},
+    volverProp(pid)},
+  'inv-wa'(){if(!canWA())return;const i=get('inventario',F.id);if(i)window.open(waUrl(telWa(cfg().telPropietario),mensajeInv(i)),'_blank','noopener')},
   'inv-back'(){const i=get('inventario',F.id);if(!i)return;const pid=F.pid;commit([{c:'inventario',r:Object.assign({},i,{estado:'en',fechaRetiro:'',motivoRetiro:''})}],i.nombre+' volvió al inventario');volverProp(pid)},
   'inv-del'(){go('del')},
   'inv-delok'(){const i=get('inventario',F.id);const pid=F.pid;if(i)commit([{c:'inventario',r:Object.assign({},i,{eliminado:1})}],'Artículo borrado');volverProp(pid)},
@@ -960,6 +966,9 @@ const ACT={
   'aj-link'(){compartirEnlace()},
   'aj-off'(){F={flow:'aj',hist:['x']};sheet(shead('¿Desconectar este teléfono?')+'<p class="muted">Se borran los datos guardados en este teléfono. En la hoja de Google no se borra nada.</p><button class="btn danger big full" data-a="aj-offok">Sí, desconectar</button>')},
   'aj-offok'(){const dev=S.device;S=blank();S.device=dev;save();closeSheet();render();toast('Teléfono desconectado')},
+  'dv-ok'(d){dvOp(d.id,{autorizado:true})},
+  'dv-no'(d){dvOp(d.id,{autorizado:false})},
+  'dv-rol'(d){dvOp(d.id,{rol:d.r})},
   'aj-plant'(){F={flow:'aj',hist:['x']};plantillas()},
   'pl-save'(){const c=cfg();const pl={};for(const k of Object.keys(DEF_PLANT)){const v=val('pl_'+k);pl[k]=v||DEF_PLANT[k]}
     S.config=Object.assign({},c,{telPropietario:val('pl_tel').replace(/\D/g,'').slice(-10),propietario:val('pl_prop').slice(0,60),negocio:val('pl_neg').slice(0,80),plantillas:pl,updatedAt:Date.now()});S.configDirty++;save();closeSheet();render();schedule(1000);toast('Mensajes guardados')},
@@ -1010,7 +1019,7 @@ function render(){
 
 function tuDia(){
   const items=[],M=curMonth(),hoy=today();
-  for(const t of activos()){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
+  for(const t of (canWA()?activos():[])){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
   if(isOwner()){
     for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60)items.push({k:'contrato',t,dias,done:false})}
     const addP=(c,r)=>{if(!r.predialFecha)return;const dias=dayDiff(hoy,r.predialFecha);if(dias<=30)items.push({k:'predial',c,r,n:r.nombre,dias,done:false})};
@@ -1039,7 +1048,7 @@ function itemHtml(x){
     const p=prop(x.t.propiedadId),late=x.st.dias<0;
     const when=late?`Atrasado ${-x.st.dias} día${x.st.dias===-1?'':'s'}`:x.st.dias===0?'Vence hoy':`Vence en ${x.st.dias} día${x.st.dias===1?'':'s'} (${fechaLarga(x.st.due)})`;
     if(x.done)return`<div class="item done-t"><div class="ic done">${I.check}</div><div class="it"><b>${esc(firstName(x.t.nombre))} ya tiene su aviso</b><span>${esc(p.nombre)} · ${ETAPA_TXT[x.st.etapa]} · ${when}</span></div><button class="btn sm" data-a="pago" data-id="${x.t.id}">${I.cash} Pagó</button></div>`;
-    return`<div class="item"><div class="ic ${late?'late':'wait'}">${late?I.alert:I.clock}</div><div class="it"><b>Recordar a ${esc(firstName(x.t.nombre))}</b><span>${esc(p.nombre)} · ${when}</span></div><button class="btn sm wa" data-a="wa" data-id="${x.t.id}" data-e="${x.st.etapa}">${I.chat} Avisar</button></div>`;
+    return`<div class="item"><div class="ic ${late?'late':'wait'}">${late?I.alert:I.clock}</div><div class="it"><b>Recordar a ${esc(firstName(x.t.nombre))}</b><span>${esc(p.nombre)} · ${when}</span></div>${canWA()?`<button class="btn sm wa" data-a="wa" data-id="${x.t.id}" data-e="${x.st.etapa}">${I.chat} Avisar</button>`:''}</div>`;
   }
   const mes=MESES[Number(curMonth().slice(5))-1];
   return`<div class="item${x.done?' done-t':''}"><div class="ic ${x.done?'done':'wait'}">${x.done?I.check:I[SERV[x.s].i]}</div><div class="it"><b>Recibos de ${SERV[x.s].n.toLowerCase()} de ${mes}</b><span>${x.n} de ${x.total} propiedades registradas</span></div>${x.done?'':`<button class="btn sm" data-a="gasto" data-s="${x.s}">Registrar</button>`}</div>`;
@@ -1127,7 +1136,7 @@ function pdet(id){
   let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`);
   if(t){
     h+=`<div class="box"><div class="ph"><h3>${esc(t.nombre)}</h3>${chipRenta(st)}</div><div class="muted">${money(t.renta)} al mes · paga el día ${esc(t.diaPago)} · desde el ${fechaLarga(t.fechaInicio)}</div><div class="muted">${t.telefono?'WhatsApp '+esc(t.telefono):'Sin WhatsApp registrado'}</div><div class="ps" style="margin-top:8px">${chipContrato(t)}</div>
-      <div class="sep"></div><div class="row"><button class="btn wa" data-a="wa" data-id="${t.id}" ${st&&st.etapa?`data-e="${st.etapa}"`:''}> ${I.chat} Mensaje de renta</button><button class="btn" data-a="pago" data-id="${t.id}">${I.cash} Registrar pago</button></div>
+      <div class="sep"></div><div class="row">${canWA()?`<button class="btn wa" data-a="wa" data-id="${t.id}" ${st&&st.etapa?`data-e="${st.etapa}"`:''}> ${I.chat} Mensaje de renta</button>`:''}<button class="btn" data-a="pago" data-id="${t.id}">${I.cash} Registrar pago</button></div>
       ${isOwner()?`<div class="sep"></div><div class="row"><button class="btn sm" data-a="edit" data-c="inquilinos" data-id="${t.id}">${I.edit} Corregir datos</button><button class="btn sm" data-a="renov" data-id="${t.id}">${I.refresh} Renovar contrato</button><button class="btn sm" data-a="baja" data-id="${t.id}">${I.userMinus} Dar de baja</button></div>`:''}</div>`;
   }else{
     h+=`<div class="box"><h3>Desocupada</h3><div class="muted">Renta sugerida ${money(p.renta)} · día de pago ${esc(p.diaPago)}</div>${isOwner()?`<div class="sep"></div><button class="btn pri full" data-a="alta" data-id="${p.id}">${I.userPlus} Registrar inquilino</button>`:''}</div>`;
@@ -1216,6 +1225,23 @@ function detalleTabla(m){
   return h+'</table>';
 }
 
+/* Administrador: gestionar teléfonos (solo rol admin; el servidor lo vuelve a validar) */
+function dvOp(id,ch){S.dispOps=(S.dispOps||[]).concat([Object.assign({device:id},ch)]);const x=(S.disp||[]).find(v=>v.id===id);if(x)Object.assign(x,ch);save();ajustes();sync(false)}
+function panelDisp(){
+  const L=S.disp||[];
+  let h=`<div class="box"><h3>Teléfonos conectados</h3><p class="muted small">Aprueba o quita teléfonos y cambia su tipo de acceso. El rol de administrador solo se asigna directamente en la hoja.</p>`;
+  if(!L.length)h+='<p class="muted">Aún no hay teléfonos registrados.</p>';
+  for(const v of L){
+    const adm=v.rol==='admin';
+    h+=`<div class="tn"><span class="it"><b>${esc(v.nombre||'Sin nombre')}${v.yo?' (este teléfono)':''}</b><span>${adm?'Administrador':v.autorizado?(v.rol==='propietario'?'Propietario':'Capturista'):'Esperando aprobación'}</span></span>`;
+    if(!adm&&!v.yo){
+      h+=v.autorizado?`<button class="btn sm" data-a="dv-rol" data-id="${esc(v.id)}" data-r="${v.rol==='propietario'?'capturista':'propietario'}">${v.rol==='propietario'?'Pasar a capturista':'Pasar a propietario'}</button><button class="btn sm" data-a="dv-no" data-id="${esc(v.id)}" style="color:var(--rojo)">Quitar</button>`:`<button class="btn sm pri" data-a="dv-ok" data-id="${esc(v.id)}">Aprobar</button>`;
+    }
+    h+='</div>';
+  }
+  return h+'</div>';
+}
+
 /* Ajustes */
 function ajustes(){
   const own=isOwner(),c=cfg();
@@ -1223,9 +1249,10 @@ function ajustes(){
   h+=`<div class="box"><h3>Tu nombre</h3><input class="inp" id="fname" maxlength="40" value="${esc(S.deviceName)}" placeholder="Ej. Carlos"><div class="sep" style="height:10px"></div><button class="btn full" data-a="aj-name">${I.check} Guardar nombre</button></div>`;
   h+=`<div class="box"><h3>Conexión</h3>`;
   if(DEMO)h+='<p class="muted">Estás en modo demostración. Abre la app sin "?demo" para conectarla a una hoja real.</p>';
-  else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${S.rol==='propietario'?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
+  else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='admin'?'Administrador':S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${isOwner()&&S.conn?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
   else h+=`<p class="muted">Pide al propietario el enlace de conexión y ábrelo en este teléfono.</p><details class="more"><summary class="btn sm">Conectar a mano</summary><label class="f" for="furl">Dirección de la hoja (/exec)</label><input class="inp" id="furl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"><label class="f" for="fkey">Clave</label><input class="inp" id="fkey" type="password" autocomplete="off"><label class="f" for="fname2">Tu nombre</label><input class="inp" id="fname2" maxlength="40" value="${esc(S.deviceName)}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri full" data-a="aj-manual">Conectar</button></details>`;
   h+='</div>';
+  if(isAdmin())h+=panelDisp();
   if(own){
     h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto de los recordatorios de 15, 10 y 3 días.</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
     h+=`<div class="box"><h3>Descargar en Excel (CSV)</h3><div class="row"><button class="btn sm" data-a="aj-csv" data-c="gastos">${I.download} Recibos</button><button class="btn sm" data-a="aj-csv" data-c="pagos">${I.download} Pagos</button><button class="btn sm" data-a="aj-csv" data-c="inquilinos">${I.download} Inquilinos</button></div></div>`;
