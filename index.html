@@ -288,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.3.1', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.3.2', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
@@ -308,16 +308,17 @@ const SCOL={luz:'#BE900E',agua:'#2F6AA0',gas:'#5B6B82',internet:'#2F8F83'};
 const TIPOS=['Departamento','Casa','Local','Cuarto','Otro'];
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DEF_PLANT={
-  p15:'Hola {nombre}, te saluda {propietario}. Te recuerdo que la renta de {propiedad} por {monto} vence el {fecha}, en 15 días. ¡Gracias!',
-  p10:'Hola {nombre}, un recordatorio amable: la renta de {propiedad} por {monto} vence el {fecha}, en 10 días. Gracias.',
-  p3:'Hola {nombre}, la renta de {propiedad} por {monto} vence en 3 días ({fecha}). Si ya pagaste, ignora este mensaje. Gracias.',
-  venc:'Hola {nombre}, la renta de {propiedad} por {monto} venció el {fecha}. ¿Me confirmas cuándo puedes realizar el pago? Gracias.',
+  prev:'Buenos días {nombre}, aprovecho para comentarte que el recibo de la renta ya se encuentra disponible a partir de {cuando}. Quedo al pendiente para que me indiquen si prefieren que pase por la renta en efectivo o si desean enviarme un retiro sin tarjeta. ¡Gracias!',
   gen:'Hola {nombre}, te recuerdo que la renta de {mes} de {propiedad} es de {monto} y vence el {fecha}. Gracias.',
   pago:'Hola {nombre}, te confirmo que recibí tu pago de la renta de {mes} de {propiedad} por {monto}. ¡Muchas gracias! — {propietario}',
   mant:'Hola {nombre}, te saluda {propietario}. Te aviso que {cuando} se realizará un mantenimiento en {propiedad} ({motivo}). {corte}Gracias por tu comprensión.',
   mantfin:'Hola {nombre}, ya terminó el mantenimiento en {propiedad}. {restab}Gracias por tu paciencia. — {propietario}'
 };
-const ETAPA_TXT={'15':'15 días antes','10':'10 días antes','3':'3 días antes','venc':'Renta vencida'};
+const ETAPA_TXT={'prev':'1 día hábil antes','15':'15 días antes','10':'10 días antes','3':'3 días antes','venc':'Renta vencida'};
+const DSEM=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+/* Día hábil anterior (lunes a viernes). No considera días festivos. */
+function diaHabilAntes(f){let x=addDays(f,-1);while([0,6].includes(new Date(x+'T12:00:00Z').getUTCDay()))x=addDays(x,-1);return x}
+function cuandoRenta(due,dias){if(dias<=0)return'hoy';if(dias===1)return'mañana';return'este '+DSEM[new Date(due+'T12:00:00Z').getUTCDay()]+' '+fechaLarga(due)}
 
 /* ---------- Íconos ---------- */
 const P={
@@ -418,8 +419,9 @@ function estadoRenta(t){
   for(let i=0;i<8;i++,m=addMonths(m,1)){
     const due=dueDate(m,dia);if(due<ini||pag.has(m))continue;
     const dias=dayDiff(hoy,due);
-    const etapa=dias<0?'venc':dias<=3?'3':dias<=10?'10':dias<=15?'15':null;
-    return{mes:m,due,dias,etapa};
+    const rem=diaHabilAntes(due);
+    const etapa=(hoy>=rem&&dias>=0)?'prev':null;
+    return{mes:m,due,dias,etapa,rem};
   }
   return null;
 }
@@ -433,8 +435,8 @@ function chipRenta(st){
 }
 function mensaje(t,st,etapa){
   const p=prop(t.propiedadId)||{},c=cfg();
-  const tpl=c.plantillas[etapa==='venc'?'venc':etapa?'p'+etapa:'gen'];
-  const v={nombre:firstName(t.nombre),mes:st?MESES[Number(st.mes.slice(5))-1]:'',propiedad:p.nombre||'',monto:money(t.renta),fecha:st?fechaLarga(st.due):'',dias:st?Math.abs(st.dias):'',propietario:c.propietario||S.deviceName||''};
+  const tpl=c.plantillas[etapa==='prev'?'prev':'gen'];
+  const v={nombre:firstName(t.nombre),mes:st?MESES[Number(st.mes.slice(5))-1]:'',propiedad:p.nombre||'',monto:money(t.renta),fecha:st?fechaLarga(st.due):'',dias:st?Math.abs(st.dias):'',cuando:st?cuandoRenta(st.due,st.dias):'',propietario:c.propietario||S.deviceName||''};
   return tpl.replace(/\{(\w+)\}/g,(m,k)=>k in v?v[k]:m);
 }
 
@@ -1234,20 +1236,20 @@ function ajustes(){
   else h+=`<p class="muted">Pide al propietario el enlace de conexión y ábrelo en este teléfono.</p><details class="more"><summary class="btn sm">Conectar a mano</summary><label class="f" for="furl">Dirección de la hoja (/exec)</label><input class="inp" id="furl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"><label class="f" for="fkey">Clave</label><input class="inp" id="fkey" type="password" autocomplete="off"><label class="f" for="fname2">Tu nombre</label><input class="inp" id="fname2" maxlength="40" value="${esc(S.deviceName)}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri full" data-a="aj-manual">Conectar</button></details>`;
   h+='</div>';
   if(own){
-    h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto de los recordatorios de 15, 10 y 3 días.</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
+    h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto del recordatorio de renta (1 día hábil antes).</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
     h+=`<div class="box"><h3>Descargar en Excel (CSV)</h3><div class="row"><button class="btn sm" data-a="aj-csv" data-c="gastos">${I.download} Recibos</button><button class="btn sm" data-a="aj-csv" data-c="pagos">${I.download} Pagos</button><button class="btn sm" data-a="aj-csv" data-c="inquilinos">${I.download} Inquilinos</button></div></div>`;
   }
   h+=`<p class="hint" style="text-align:center">Traza Casa · versión ${VER}</p>`;
   sheet(h);
 }
 function plantillas(){
-  const c=cfg();const lab={p15:'15 días antes',p10:'10 días antes',p3:'3 días antes',venc:'Cuando ya venció',gen:'Mensaje de renta del mes (botón de la propiedad)',pago:'Al confirmar que recibiste un pago de renta',mant:'Aviso de mantenimiento',mantfin:'Cuando termina el mantenimiento'};
-  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {mes} {propietario}. En mantenimiento también {cuando} {motivo} {corte} {restab}.</p>
+  const c=cfg();const lab={prev:'Recordatorio de renta (1 día hábil antes)',gen:'Mensaje de renta del mes (botón de la propiedad)',pago:'Al confirmar que recibiste un pago de renta',mant:'Aviso de mantenimiento',mantfin:'Cuando termina el mantenimiento'};
+  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {mes} {propietario}. En el recordatorio, {cuando} pone «mañana» o el día de la renta. En mantenimiento también {cuando} {motivo} {corte} {restab}.</p>
     <label class="f" for="pl_prop">¿Con qué nombre firmas?</label><input class="inp" id="pl_prop" maxlength="60" value="${esc(c.propietario)}" placeholder="Ej. Lic. Carrera">
     <label class="f" for="pl_neg">Nombre del negocio (opcional)</label><input class="inp" id="pl_neg" maxlength="80" value="${esc(c.negocio)}"><label class="f" for="pl_tel">Tu WhatsApp (10 dígitos)</label><input class="inp" id="pl_tel" inputmode="tel" maxlength="14" value="${esc(c.telPropietario)}"><p class="hint">A este número llega el aviso cuando alguien retira algo del inventario.</p>`;
   for(const k of Object.keys(DEF_PLANT))h+=`<label class="f" for="pl_${k}">${lab[k]}</label><textarea class="inp" id="pl_${k}" maxlength="500">${esc(c.plantillas[k])}</textarea>`;
   const t=activos()[0];
-  if(t)h+=`<label class="f">Así le llega a ${esc(firstName(t.nombre))} (3 días antes):</label><div class="waprev">${esc(mensaje(t,estadoRenta(t)||{due:today(),dias:3},'3'))}</div>`;
+  if(t)h+=`<label class="f">Así le llega a ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensaje(t,estadoRenta(t)||{mes:curMonth(),due:addDays(today(),1),dias:1},'prev'))}</div>`;
   sheet(h+`<div class="sep"></div><button class="btn pri big full" data-a="pl-save">${I.check} Guardar mensajes</button>`);
 }
 function compartirEnlace(){
@@ -1326,7 +1328,7 @@ function demoState(){
   st.data.mantenimientos.m2=mk({id:'m2',destino:'p:p4',motivo:'Cambio de boiler',fecha:addDays(hoy,-20),horario:'',servicios:'gas',costo:3200,proveedor:'Gas y Calentadores del Bajío',telProveedor:'4777654321',estado:'hecho',avisados:'t4',restablecido:addDays(hoy,-20),nota:''});
   [['p1','TV','Pantalla de 43 pulgadas, con control'],['p1','Cama matrimonial','Con colchón en buen estado'],['p1','Base de cama','Madera, color nogal'],['p1','Closet','Closet de madera con 3 puertas'],['p1','Refrigerador','Blanco, 14 pies'],['p3','Estufa','De 6 quemadores'],['p3','Lavadora','Marca Whirlpool, 18 kg']].forEach((x,k)=>{st.data.inventario['i'+k]=mk({id:'i'+k,propiedadId:x[0],nombre:x[1],descripcion:x[2],estado:'en',fechaRetiro:'',motivoRetiro:''})});
   st.data.inventario.ir=mk({id:'ir',propiedadId:'p3',nombre:'Sillón de sala',descripcion:'Tres piezas, gris',estado:'retirado',fechaRetiro:addDays(hoy,-40),motivoRetiro:'Se lo llevó el inquilino anterior'});
-  st.data.avisos.a1=mk({id:'a1',inquilinoId:'t4',mes:M,etapa:'15',fecha:addMonths(M,0)+'-'+String(Math.max(1,d-6)).padStart(2,'0')});
+  st.data.avisos.a1=mk({id:'a1',inquilinoId:'t4',mes:M,etapa:'prev',fecha:addMonths(M,0)+'-'+String(Math.max(1,d-6)).padStart(2,'0')});
   st.data.comentarios.c1=mk({id:'c1',clave:'p3|luz|'+M,texto:'Instalaron un minisplit en la recámara principal.',fecha:hoy});
   return st;
 }
