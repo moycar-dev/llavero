@@ -288,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.3.3', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.4.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
@@ -394,7 +394,28 @@ function load(){
   try{const j=JSON.parse(ls(LSK));if(j&&j.v===1){const b=blank();Object.assign(b,j);b.data=Object.assign(blank().data,j.data||{});return b}}catch(e){}
   return blank();
 }
-function save(){if(!DEMO)ls(LSK,JSON.stringify(S))}
+function save(){if(!DEMO){ls(LSK,JSON.stringify(S));pushConn()}}
+/* Avisos al teléfono: el service worker necesita la conexión para pedir el texto del aviso */
+let _pc='';
+function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open('tc',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function pushConn(){try{const v=S.conn&&S.device&&S.rol==='propietario'?JSON.stringify({u:S.conn.u,k:S.conn.k,device:S.device,deviceName:S.deviceName||''}):'';if(v===_pc)return;_pc=v;
+  idbOpen().then(d=>{const st=d.transaction('k','readwrite').objectStore('k');if(v)st.put(JSON.parse(v),'conn');else st.delete('conn')}).catch(()=>{})}catch(e){}}
+const b64u={enc:a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),dec:s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');const r=atob(s+'==='.slice((s.length+3)%4));return Uint8Array.from(r,c=>c.charCodeAt(0))}};
+async function llamar(action,extra){
+  const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),30000);
+  try{const res=await fetch(S.conn.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action,key:S.conn.k,device:S.device,deviceName:S.deviceName||'Sin nombre'},extra||{})),signal:ctl.signal,redirect:'follow',credentials:'omit'});return await res.json()}finally{clearTimeout(to)}
+}
+const iosSinApp=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)&&!(navigator.standalone||matchMedia('(display-mode: standalone)').matches);
+const pushOk=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+async function pushEstado(){
+  const box=document.getElementById('pushBox');if(!box)return;
+  let h='';
+  if(!pushOk()){h=iosSinApp()?'<p class="muted small">En iPhone primero agrega la app a tu pantalla de inicio: toca Compartir y luego «Agregar a pantalla de inicio». Ábrela desde ahí y vuelve aquí.</p>':'<p class="muted small">Este teléfono o navegador no permite avisos. Prueba abrir la app desde Chrome (Android) o desde la pantalla de inicio (iPhone).</p>'}
+  else if(Notification.permission==='denied'){h='<p class="muted small">Los avisos están bloqueados para esta app. Actívalos en los ajustes del teléfono (Notificaciones → Traza Casa) y vuelve aquí.</p>'}
+  else{let sub=null;try{const reg=await navigator.serviceWorker.ready;sub=await reg.pushManager.getSubscription()}catch(e){}
+    h=sub?`<p class="muted small">Activados en este teléfono. Te avisa por la mañana si hay rentas por recordar, mantenimientos o predial cercano.</p><div class="row"><button class="btn" data-a="push-test">${I.chat} Mandar una prueba</button><button class="btn" data-a="push-off" style="color:var(--rojo)">Desactivar</button></div>`:`<p class="muted small">Recibe un aviso en este teléfono cuando haya algo por hacer, aunque la app esté cerrada.</p><button class="btn pri full" data-a="push-on">${I.chat} Activar avisos</button>`}
+  const b2=document.getElementById('pushBox');if(b2)b2.innerHTML=h;
+}
 let S=load();
 if(!S.device){const a=new Uint8Array(12);crypto.getRandomValues(a);S.device=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');save()}
 
@@ -991,7 +1012,25 @@ const ACT={
     conectar(u,k,n)},
   'aj-link'(){compartirEnlace()},
   'aj-off'(){F={flow:'aj',hist:['x']};sheet(shead('¿Desconectar este teléfono?')+'<p class="muted">Se borran los datos guardados en este teléfono. En la hoja de Google no se borra nada.</p><button class="btn danger big full" data-a="aj-offok">Sí, desconectar</button>')},
-  'aj-offok'(){const dev=S.device;S=blank();S.device=dev;save();closeSheet();render();toast('Teléfono desconectado')},
+  'aj-offok'(){const dev=S.device;if(S.conn&&S.rol==='propietario')llamar('pushoff').catch(()=>{});try{if(pushOk())navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).then(x=>x&&x.unsubscribe()).catch(()=>{})}catch(e){}S=blank();S.device=dev;save();closeSheet();render();toast('Teléfono desconectado')},
+  async 'push-on'(){
+    try{
+      const perm=await Notification.requestPermission();if(perm!=='granted'){toast('No se activaron los avisos',null,true);return pushEstado()}
+      let info=await llamar('pushinfo');if(!info.ok)throw new Error(info.error||'info');
+      let pub=info.pub;
+      if(!pub){const kp=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign']);
+        const raw=b64u.enc(await crypto.subtle.exportKey('raw',kp.publicKey)),jwk=await crypto.subtle.exportKey('jwk',kp.privateKey);
+        const r=await llamar('pushsetup',{pub:raw,d:jwk.d});if(!r.ok)throw new Error(r.error||'setup');pub=r.pub}
+      const reg=await navigator.serviceWorker.ready;
+      let sub=await reg.pushManager.getSubscription();
+      if(sub){const cur=sub.options&&sub.options.applicationServerKey?b64u.enc(sub.options.applicationServerKey):'';if(cur!==pub){await sub.unsubscribe();sub=null}}
+      if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u.dec(pub)});
+      const r2=await llamar('pushsub',{endpoint:sub.endpoint});if(!r2.ok)throw new Error(r2.error||'sub');
+      toast('Avisos activados');
+    }catch(e){toast('No se pudieron activar los avisos',null,true)}
+    pushEstado()},
+  async 'push-off'(){try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();await llamar('pushoff');toast('Avisos desactivados')}catch(e){toast('No se pudo desactivar',null,true)}pushEstado()},
+  async 'push-test'(){try{const r=await llamar('pushtest');if(r.ok)toast('Te mandé una prueba, llega en unos segundos');else if(r.error==='caduco'||r.error==='sinsub'){toast('Hay que activar los avisos de nuevo',null,true)}else toast('No se pudo mandar la prueba',null,true)}catch(e){toast('No se pudo mandar la prueba',null,true)}pushEstado()},
   'aj-plant'(){F={flow:'aj',hist:['x']};plantillas()},
   'pl-save'(){const c=cfg();const pl={};for(const k of Object.keys(DEF_PLANT)){const v=val('pl_'+k);pl[k]=v||DEF_PLANT[k]}
     S.config=Object.assign({},c,{telPropietario:val('pl_tel').replace(/\D/g,'').slice(-10),propietario:val('pl_prop').slice(0,60),negocio:val('pl_neg').slice(0,80),plantillas:pl,updatedAt:Date.now()});S.configDirty++;save();closeSheet();render();schedule(1000);toast('Mensajes guardados')},
@@ -1258,12 +1297,14 @@ function ajustes(){
   else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${isOwner()&&S.conn?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
   else h+=`<p class="muted">Pide al propietario el enlace de conexión y ábrelo en este teléfono.</p><details class="more"><summary class="btn sm">Conectar a mano</summary><label class="f" for="furl">Dirección de la hoja (/exec)</label><input class="inp" id="furl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"><label class="f" for="fkey">Clave</label><input class="inp" id="fkey" type="password" autocomplete="off"><label class="f" for="fname2">Tu nombre</label><input class="inp" id="fname2" maxlength="40" value="${esc(S.deviceName)}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri full" data-a="aj-manual">Conectar</button></details>`;
   h+='</div>';
+  if(own&&!DEMO&&S.conn)h+=`<div class="box"><h3>Avisos al teléfono</h3><div id="pushBox"><p class="muted small">Revisando…</p></div></div>`;
   if(own){
     h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto del recordatorio de renta (1 día hábil antes).</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
     h+=`<div class="box"><h3>Descargar en Excel (CSV)</h3><div class="row"><button class="btn sm" data-a="aj-csv" data-c="gastos">${I.download} Recibos</button><button class="btn sm" data-a="aj-csv" data-c="pagos">${I.download} Pagos</button><button class="btn sm" data-a="aj-csv" data-c="inquilinos">${I.download} Inquilinos</button></div></div>`;
   }
   h+=`<p class="hint" style="text-align:center">Traza Casa · versión ${VER}</p>`;
   sheet(h);
+  pushEstado();
 }
 function plantillas(){
   const c=cfg();const lab={recibo:'Recibo al recibir un pago de renta',prev:'Recordatorio de renta (1 día hábil antes)',gen:'Mensaje de renta del mes (botón de la propiedad)',mant:'Aviso de mantenimiento',mantfin:'Cuando termina el mantenimiento'};
