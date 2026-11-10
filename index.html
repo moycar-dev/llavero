@@ -232,6 +232,23 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 .clock{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .btn.wa svg{display:none}
 .item .it span{line-height:1.35}
+
+/* Inicio compacto y filtros */
+.dia{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;background:var(--soft);border:0;border-radius:var(--r);text-align:left;transition:background .12s,transform .08s}
+.dia:active{background:var(--azul-l);transform:scale(.99)}
+.dia .ic{background:#fff;color:var(--azul);box-shadow:inset 0 0 0 1px var(--line)}
+.dia .ic.done{background:var(--verde-l);color:var(--verde);box-shadow:none}
+.dia .it b{font-family:var(--serif);font-size:22px;font-weight:600}
+.badge{min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:var(--rojo);color:#fff;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;flex:none}
+.chev{color:var(--muted);display:flex;transform:scaleX(-1)}
+.acts{gap:10px}
+.act{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;min-height:68px;padding:12px 14px;font-size:17px}
+.act .ic{width:40px;height:40px}
+.act .ic svg{width:22px;height:22px}
+.fbox{margin:0 0 12px}
+.fbox>summary{display:inline-flex;gap:8px;list-style:none;cursor:pointer}
+.fbox>summary::-webkit-details-marker{display:none}
+.fbox .box{margin-top:10px}
 </style>
 </head>
 <body>
@@ -468,13 +485,13 @@ const FLOWS={};
 /* Gasto */
 FLOWS.gasto={
   start(){F.step=F.s?'prop':'serv';this[F.step]()},
-  serv(){sheet(shead('¿Qué recibo vas a anotar?')+'<div class="opts">'+Object.keys(SERV).map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
+  serv(){sheet(shead('¿Qué recibo vas a registrar?')+'<div class="opts">'+Object.keys(SERV).map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
   prop(){
     const M=F.mes||curMonth();const ps=propsOrd().filter(p=>hasServ(p,F.s));
     if(!ps.length){sheet(shead('No hay propiedades con '+SERV[F.s].n)+'<p class="muted">Agrega una propiedad o activa este servicio en sus datos.</p>');return}
     const g=pid=>list('gastos').find(x=>x.propiedadId===pid&&x.servicio===F.s&&x.mes===M);
     ps.sort((a,b)=>(g(a.id)?1:0)-(g(b.id)?1:0));
-    sheet(shead('¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+'<div class="opts">'+ps.map(p=>{const x=g(p.id);return`<button class="opt" data-a="g-prop" data-id="${p.id}"><span class="ic ${x?'done':'s-'+F.s}">${x?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+' · tocar para corregir':'Falta anotar'}</span></span></button>`}).join('')+'</div>');
+    sheet(shead('¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+'<div class="opts">'+ps.map(p=>{const x=g(p.id);return`<button class="opt" data-a="g-prop" data-id="${p.id}"><span class="ic ${x?'done':'s-'+F.s}">${x?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+' · tocar para corregir':'Falta registrar'}</span></span></button>`}).join('')+'</div>');
   },
   monto(){
     const M=F.mes||curMonth(),p=prop(F.pid);
@@ -639,13 +656,14 @@ function abrirWA(t,etapa,registrar){
   if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Historial o Propiedades.',null,true);return}
   const st=estadoRenta(t);
   window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(mensaje(t,st,etapa)),'_blank','noopener');
-  if(registrar&&st&&etapa)commit([{c:'avisos',r:{id:uid(),inquilinoId:t.id,mes:st.mes,etapa,fecha:today()}}],'Aviso anotado como enviado');
+  if(registrar&&st&&etapa)commit([{c:'avisos',r:{id:uid(),inquilinoId:t.id,mes:st.mes,etapa,fecha:today()}}],'Aviso registrado como enviado');
 }
 const ACT={
   close:closeSheet,back,
   undo(){const u=window._undo;window._undo=null;$('#toastBox').innerHTML='';if(u)u()},
   tab(d){TAB=d.t;render();$('#main').scrollTop=0},
   ajustes(){F={flow:'aj',hist:[]};ajustes()},
+  dia(){F={flow:'dia',hist:[]};diaSheet()},
   gasto(d){startFlow('gasto',d.s?{s:d.s}:{})},
   pago(d){startFlow('pago',d.id?{tid:d.id}:{})},
   alta(d){startFlow('alta',d.id?{pid:d.id}:{})},
@@ -728,6 +746,7 @@ const ACT={
   'e-delok'(){const r=get(F.c,F.id);const c=F.c;closeSheet();commit([{c,r:Object.assign({},r,{eliminado:1})}],'Registro borrado')},
   filt(d){HF=d.f;HLIM=60;render()},
   hmore(){HLIM+=60;render()},
+  hclear(){HP='todo';HV='';HPR='todo';HOPEN=false;HLIM=60;render()},
   mprev(){RMES=addMonths(RMES,-1);render()},
   mnext(){if(RMES<curMonth())RMES=addMonths(RMES,1);render()},
   sync(){sync(true)},
@@ -751,7 +770,7 @@ const _back=back;
 function conectar(u,k,n){S.conn={u,k};S.deviceName=n.slice(0,40);S.status='none';S.err=null;save();closeSheet();render();toast('Conectando…');sync(true)}
 
 /* ---------- Vistas ---------- */
-let TAB='inicio',HF='todo',HLIM=60,RMES=addMonths(curMonth(),0);
+let TAB='inicio',HF='todo',HP='todo',HV='',HPR='todo',HOPEN=false,HLIM=60,RMES=addMonths(curMonth(),0);
 function renderStatus(){
   const el=$('#status');if(!el)return;
   let cls='',txt='',btn='';
@@ -785,6 +804,7 @@ function render(){
   const v=VIEWS[TAB]||VIEWS.inicio;
   $('#main').innerHTML='<div class="in"><div class="status" id="status"></div>'+v()+'</div>';
   renderStatus();renderNav();
+  if(F&&F.flow==='dia'&&!$('#sheet').hidden)diaSheet(true);
 }
 
 function tuDia(){
@@ -800,6 +820,12 @@ function tuDia(){
   const dg=x=>x.k==='aviso'?x.st.dias:x.dias!=null?x.dias:500;items.sort((a,b)=>(a.done-b.done)||(dg(a)-dg(b)));
   return items;
 }
+function diaSheet(keep){
+  const el=$('#sheet .sheet');const sc=keep&&el?el.scrollTop:0;
+  const it=tuDia(),done=it.filter(x=>x.done).length;
+  sheet(shead('Tu día',`<span class="chip off">${done} de ${it.length} listos</span>`)+`<div class="prog" style="margin:0 2px 8px"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div>`+(it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>'));
+  if(keep){const e=$('#sheet .sheet');if(e)e.scrollTop=sc}
+}
 function itemHtml(x){
   if(x.k==='predial'){const late=x.dias<0;const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.r.predialFecha)+')';
     return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.home}</div><div class="it"><b>Predial de ${esc(x.n)}</b><span>${x.r.predialMonto?money(x.r.predialMonto)+' · ':''}${when}</span></div><button class="btn sm" data-a="pred-pag" data-c="${x.c}" data-id="${x.r.id}">${I.check} Ya pagué</button></div>`}
@@ -812,14 +838,14 @@ function itemHtml(x){
     return`<div class="item"><div class="ic ${late?'late':'wait'}">${late?I.alert:I.clock}</div><div class="it"><b>Recordar a ${esc(firstName(x.t.nombre))}</b><span>${esc(p.nombre)} · ${when}</span></div><button class="btn sm wa" data-a="wa" data-id="${x.t.id}" data-e="${x.st.etapa}">${I.chat} Avisar</button></div>`;
   }
   const mes=MESES[Number(curMonth().slice(5))-1];
-  return`<div class="item${x.done?' done-t':''}"><div class="ic ${x.done?'done':'wait'}">${x.done?I.check:I[SERV[x.s].i]}</div><div class="it"><b>Recibos de ${SERV[x.s].n.toLowerCase()} de ${mes}</b><span>${x.n} de ${x.total} propiedades anotadas</span></div>${x.done?'':`<button class="btn sm" data-a="gasto" data-s="${x.s}">Anotar</button>`}</div>`;
+  return`<div class="item${x.done?' done-t':''}"><div class="ic ${x.done?'done':'wait'}">${x.done?I.check:I[SERV[x.s].i]}</div><div class="it"><b>Recibos de ${SERV[x.s].n.toLowerCase()} de ${mes}</b><span>${x.n} de ${x.total} propiedades registradas</span></div>${x.done?'':`<button class="btn sm" data-a="gasto" data-s="${x.s}">Registrar</button>`}</div>`;
 }
 function feed(){
   const out=[];
-  for(const g of list('gastos')){const p=prop(g.propiedadId);out.push({c:'gastos',r:g,ic:SERV[g.servicio].i,cls:'s-'+g.servicio,t:SERV[g.servicio].n+' · '+(p?p.nombre:'—'),s:mesLargo(g.mes)+(g.nota?' · '+g.nota:''),amt:money(g.monto),f:'gastos'})}
-  for(const x of list('pagos')){const t=get('inquilinos',x.inquilinoId)||S.data.inquilinos[x.inquilinoId]||{};out.push({c:'pagos',r:x,ic:'cash',cls:'s-pago',t:'Pago de '+(t.nombre||'—'),s:'Renta de '+mesLargo(x.mes)+' · '+fechaLarga(x.fecha),amt:money(x.monto),f:'pagos'})}
-  for(const t of list('inquilinos')){const p=prop(t.propiedadId)||S.data.propiedades[t.propiedadId]||{};out.push({c:'inquilinos',r:t,ic:t.estado==='activo'?'userPlus':'userMinus',cls:'s-inq',t:(t.estado==='activo'?'Alta: ':'Baja: ')+t.nombre,s:(p.nombre||'')+' · '+(t.estado==='activo'?'desde el '+fechaLarga(t.fechaInicio):'salió el '+fechaLarga(t.fechaBaja)),amt:'',f:'inquilinos'})}
-  for(const a of list('avisos')){const t=get('inquilinos',a.inquilinoId)||S.data.inquilinos[a.inquilinoId]||{};out.push({c:'avisos',r:a,ic:'chat',cls:'s-aviso',t:'Aviso a '+(t.nombre||'—'),s:ETAPA_TXT[a.etapa]+' · '+fechaLarga(a.fecha),amt:'',f:'avisos'})}
+  for(const g of list('gastos')){const p=prop(g.propiedadId);out.push({c:'gastos',r:g,ic:SERV[g.servicio].i,cls:'s-'+g.servicio,t:SERV[g.servicio].n+' · '+(p?p.nombre:'—'),s:mesLargo(g.mes)+(g.nota?' · '+g.nota:''),amt:money(g.monto),f:'gastos',d:fmtD.format(new Date(g.updatedAt||Date.now())),m:g.mes,pid:g.propiedadId})}
+  for(const x of list('pagos')){const t=get('inquilinos',x.inquilinoId)||S.data.inquilinos[x.inquilinoId]||{};out.push({c:'pagos',r:x,ic:'cash',cls:'s-pago',t:'Pago de '+(t.nombre||'—'),s:'Renta de '+mesLargo(x.mes)+' · '+fechaLarga(x.fecha),amt:money(x.monto),f:'pagos',d:x.fecha||'',m:(x.fecha||'').slice(0,7),pid:t.propiedadId})}
+  for(const t of list('inquilinos')){const p=prop(t.propiedadId)||S.data.propiedades[t.propiedadId]||{};out.push({c:'inquilinos',r:t,ic:t.estado==='activo'?'userPlus':'userMinus',cls:'s-inq',t:(t.estado==='activo'?'Alta: ':'Baja: ')+t.nombre,s:(p.nombre||'')+' · '+(t.estado==='activo'?'desde el '+fechaLarga(t.fechaInicio):'salió el '+fechaLarga(t.fechaBaja)),amt:'',f:'inquilinos',d:(t.estado==='activo'?t.fechaInicio:t.fechaBaja)||'',m:((t.estado==='activo'?t.fechaInicio:t.fechaBaja)||'').slice(0,7),pid:t.propiedadId})}
+  for(const a of list('avisos')){const t=get('inquilinos',a.inquilinoId)||S.data.inquilinos[a.inquilinoId]||{};out.push({c:'avisos',r:a,ic:'chat',cls:'s-aviso',t:'Aviso a '+(t.nombre||'—'),s:ETAPA_TXT[a.etapa]+' · '+fechaLarga(a.fecha),amt:'',f:'avisos',d:a.fecha||'',m:(a.fecha||'').slice(0,7),pid:t.propiedadId})}
   return out.sort((a,b)=>b.r.updatedAt-a.r.updatedAt);
 }
 function feedRow(x){return`<button class="li" data-a="edit" data-c="${x.c}" data-id="${x.r.id}"><span class="ic ${x.cls}">${I[x.ic]}</span><span class="it"><b>${esc(x.t)}</b><span>${esc(x.s)}</span></span><span class="amt">${x.amt}</span></button>`}
@@ -832,16 +858,15 @@ const VIEWS={
       h+=`<section class="card empty"><div class="ic">${I.key}</div><h2>Empecemos con tus propiedades</h2><p class="muted">Agrega cada casa o departamento que rentas. Después registras a tus inquilinos y sus recibos.</p>${isOwner()?`<button class="btn pri big full" data-a="newprop">${I.plus} Agregar propiedad</button>`:'<p>Pide al propietario que agregue las propiedades.</p>'}</section>`;
       return h;
     }
-    const it=tuDia(),done=it.filter(x=>x.done).length;
-    h+=`<section><div class="sh"><h2>Tu día</h2><span class="cnt">${done} de ${it.length} listo</span></div><div class="card"><div class="daytop"><div class="prog"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div></div>${it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>'}</div></section>`;
-    h+=`<section><div class="sh"><h2>¿Qué quieres anotar?</h2></div><div class="acts">
-      <button class="act a-gasto" data-a="gasto"><span class="ic">${I.bolt}</span><span>Recibo de luz, agua o gas<small>Lo que pagaste este mes</small></span></button>
-      <button class="act a-pago" data-a="pago"><span class="ic">${I.cash}</span><span>Pago de renta<small>Un inquilino te pagó</small></span></button>
-      ${isOwner()?`<button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino<small>Alguien empieza a rentar</small></span></button>
-      <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja<small>Alguien deja de rentar</small></span></button>`:''}
+    const it=tuDia(),pend=it.filter(x=>!x.done).length;
+    h+=`<section><button class="dia" data-a="dia"><span class="ic">${I.clock}</span><span class="it"><b>Tu día</b><span>${pend?pend+(pend===1?' cosa por hacer':' cosas por hacer'):'Todo al día'}</span></span>${pend?`<span class="badge" aria-label="${pend} pendientes">${pend}</span>`:`<span class="ic done">${I.check}</span>`}</button></section>`;
+    h+=`<section><div class="sh"><h2>¿Qué quieres registrar?</h2></div><div class="acts">
+      <button class="act a-gasto" data-a="gasto"><span class="ic">${I.bolt}</span><span>Recibo</span></button>
+      <button class="act a-pago" data-a="pago"><span class="ic">${I.cash}</span><span>Pago de renta</span></button>
+      ${isOwner()?`<button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino</span></button>
+      <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja</span></button>`:''}
     </div></section>`;
-    const f=feed().slice(0,5);
-    h+=`<section><div class="sh"><h2>Lo último</h2>${f.length?`<button class="btn sm" data-a="tab" data-t="hist">Ver historial</button>`:''}</div><div class="card">${f.length?f.map(feedRow).join(''):'<p class="muted">Aquí verás lo último que anotes.</p>'}</div></section>`;
+    h+=`<section><button class="dia" data-a="tab" data-t="hist"><span class="ic">${I.list}</span><span class="it"><b>Historial</b><span>Revisa tus recibos, pagos y avisos</span></span><span class="chev">${I.back}</span></button></section>`;
     return h;
   },
   props(){
@@ -862,9 +887,28 @@ const VIEWS={
   },
   hist(){
     const fs=[['todo','Todo'],['gastos','Recibos'],['pagos','Pagos'],['inquilinos','Inquilinos'],['avisos','Avisos']];
-    let all=feed();if(HF!=='todo')all=all.filter(x=>x.f===HF);
-    return`<section><div class="sh"><h2>Historial</h2><span class="cnt">${all.length} registros</span></div><div class="filters">${fs.map(([k,n])=>`<button class="btn${HF===k?' on':''}" data-a="filt" data-f="${k}">${n}</button>`).join('')}</div>
-      <div class="card">${all.length?all.slice(0,HLIM).map(feedRow).join(''):'<p class="muted">No hay registros todavía.</p>'}</div>${all.length>HLIM?`<div class="sep"></div><button class="btn full" data-a="hmore">Ver más</button>`:''}<p class="hint">Toca un renglón para corregirlo o borrarlo.</p></section>`;
+    const base=feed();
+    let all=base;
+    if(HF!=='todo')all=all.filter(x=>x.f===HF);
+    if(HPR!=='todo')all=all.filter(x=>x.pid===HPR);
+    if(HP==='dia'&&HV)all=all.filter(x=>x.d===HV);
+    if(HP==='mes'&&HV)all=all.filter(x=>x.m===HV);
+    if(HP==='anio'&&HV)all=all.filter(x=>(x.m||'').slice(0,4)===HV);
+    const meses=[...new Set(base.map(x=>x.m).filter(Boolean))].sort().reverse();
+    const anios=[...new Set(meses.map(m=>m.slice(0,4)))];
+    const act=(HP!=='todo'?1:0)+(HPR!=='todo'?1:0);
+    const opP=[['todo','Todo el tiempo'],['dia','Un día'],['mes','Un mes'],['anio','Un año']].map(([k,n])=>`<option value="${k}"${HP===k?' selected':''}>${n}</option>`).join('');
+    let ctl='';
+    if(HP==='dia')ctl=`<label class="f" for="hval">Día</label><input type="date" class="inp" id="hval" data-chg="hv" value="${esc(HV)}">`;
+    if(HP==='mes')ctl=`<label class="f" for="hval">Mes</label><select class="inp" id="hval" data-chg="hv">${(meses.includes(HV)||!HV?meses:[HV,...meses]).map(m=>`<option value="${m}"${HV===m?' selected':''}>${mesLargo(m)}</option>`).join('')}</select>`;
+    if(HP==='anio')ctl=`<label class="f" for="hval">Año</label><select class="inp" id="hval" data-chg="hv">${(anios.includes(HV)||!HV?anios:[HV,...anios]).map(y=>`<option value="${y}"${HV===y?' selected':''}>${y}</option>`).join('')}</select>`;
+    const opR=`<option value="todo">Todas las propiedades</option>`+propsOrd().map(p=>`<option value="${p.id}"${HPR===p.id?' selected':''}>${esc(p.nombre)}</option>`).join('');
+    return`<section><div class="sh"><h2>Historial</h2><span class="cnt">${all.length} registro${all.length===1?"":"s"}</span></div><div class="filters">${fs.map(([k,n])=>`<button class="btn${HF===k?' on':''}" data-a="filt" data-f="${k}">${n}</button>`).join('')}</div>
+      <details class="fbox"${act||HOPEN?' open':''}><summary class="btn sm">Filtrar por fecha o propiedad${act?` <span class="chip info">${act}</span>`:''}</summary>
+        <div class="box"><label class="f" for="hperiod">Periodo</label><select class="inp" id="hperiod" data-chg="hp">${opP}</select>${ctl}
+        <label class="f" for="hprop">Propiedad</label><select class="inp" id="hprop" data-chg="hpr">${opR}</select>
+        ${act?`<div class="sep"></div><button class="btn sm full" data-a="hclear">Quitar filtros</button>`:''}</div></details>
+      <div class="card">${all.length?all.slice(0,HLIM).map(feedRow).join(''):'<p class="muted">No hay registros con estos filtros.</p>'}</div>${all.length>HLIM?`<div class="sep"></div><button class="btn full" data-a="hmore">Ver más</button>`:''}<p class="hint">Toca un renglón para corregirlo o borrarlo. El mes de un recibo es el mes al que pertenece.</p></section>`;
   },
   resumen(){return resumen()}
 };
@@ -1014,7 +1058,13 @@ document.addEventListener('click',e=>{
 function ajustesBack(){if(F.flow==='aj'){F={flow:'aj',hist:[]};ajustes()}else closeSheet()}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();if(e.key==='Enter'&&e.target.matches('.money input')){const b=$('#sheet .btn.pri');if(b)b.click()}});
 window.addEventListener('online',()=>sync());
-document.addEventListener('change',e=>{if(e.target.id==='fini'&&F&&F.flow==='alta'&&F.dur&&F.dur!=='otra'&&e.target.value){const f=document.getElementById('ffin');if(f)f.value=addMesesFecha(e.target.value,Number(F.dur))}});
+document.addEventListener('toggle',e=>{if(e.target.classList&&e.target.classList.contains('fbox'))HOPEN=e.target.open},true);
+document.addEventListener('change',e=>{
+  const c=e.target.dataset&&e.target.dataset.chg;
+  if(c==='hp'){HP=e.target.value;HLIM=60;const b=feed();const ms=[...new Set(b.map(x=>x.m).filter(Boolean))].sort().reverse();HV=HP==='dia'?today():HP==='mes'?(ms.includes(curMonth())?curMonth():ms[0]||''):HP==='anio'?(ms[0]||'').slice(0,4):'';render();return}
+  if(c==='hv'){HV=e.target.value;HLIM=60;render();return}
+  if(c==='hpr'){HPR=e.target.value;HLIM=60;render();return}
+if(e.target.id==='fini'&&F&&F.flow==='alta'&&F.dur&&F.dur!=='otra'&&e.target.value){const f=document.getElementById('ffin');if(f)f.value=addMesesFecha(e.target.value,Number(F.dur))}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();sync()}});
 setInterval(()=>{if(!document.hidden)sync()},60000);
 setInterval(renderHeader,30000);
