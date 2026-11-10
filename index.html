@@ -288,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.3.2', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.3.3', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
@@ -310,7 +310,7 @@ const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','
 const DEF_PLANT={
   prev:'Buenos días {nombre}, aprovecho para comentarte que el recibo de la renta ya se encuentra disponible a partir de {cuando}. Quedo al pendiente para que me indiquen si prefieren que pase por la renta en efectivo o si desean enviarme un retiro sin tarjeta. ¡Gracias!',
   gen:'Hola {nombre}, te recuerdo que la renta de {mes} de {propiedad} es de {monto} y vence el {fecha}. Gracias.',
-  pago:'Hola {nombre}, te confirmo que recibí tu pago de la renta de {mes} de {propiedad} por {monto}. ¡Muchas gracias! — {propietario}',
+  recibo:'RECIBO {propiedad}\n\nCon fecha {fechapago} recibí la cantidad de {montodec} pesos ({letra}), de {inquilino}, por concepto de RENTA DEL PERIODO DEL {desde} AL {hasta} por el arrendamiento del inmueble ubicado en {inmueble}.\n\n{propietario}          {inquilino}',
   mant:'Hola {nombre}, te saluda {propietario}. Te aviso que {cuando} se realizará un mantenimiento en {propiedad} ({motivo}). {corte}Gracias por tu comprensión.',
   mantfin:'Hola {nombre}, ya terminó el mantenimiento en {propiedad}. {restab}Gracias por tu paciencia. — {propietario}'
 };
@@ -447,7 +447,30 @@ function propietarioNombre(){const c=cfg();return c.propietario||S.deviceName||'
 function plant(k,v){return cfg().plantillas[k].replace(/\{(\w+)\}/g,(m,x)=>x in v?v[x]:m)}
 function waUrl(tel,txt){return'https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(txt)}
 function lista(a){a=a.map(x=>x.toLowerCase());return a.length>1?a.slice(0,-1).join(', ')+' y '+a[a.length-1]:a.join('')}
-function mensajePago(t,pg){const p=prop(t.propiedadId)||{};return plant('pago',{nombre:firstName(t.nombre),mes:MESES[Number(String(pg.mes).slice(5))-1]||'',propiedad:p.nombre||'',monto:money(pg.monto),propietario:propietarioNombre()})}
+/* Número a letras (pesos) para el recibo */
+const U20=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+const DEC=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+const CEN=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+function letras(n,apoc){
+  if(n<30){let w=U20[n];if(apoc){if(n===1)w='un';else if(n===21)w='veintiún'}return w}
+  if(n<100){const d=Math.floor(n/10),u=n%10;return DEC[d]+(u?' y '+letras(u,apoc):'')}
+  if(n<1000){if(n===100)return'cien';return CEN[Math.floor(n/100)]+(n%100?' '+letras(n%100,apoc):'')}
+  if(n<1e6){const k=Math.floor(n/1000),r=n%1000;return (k===1?'mil':letras(k,true)+' mil')+(r?' '+letras(r,apoc):'')}
+  const m=Math.floor(n/1e6),r=n%1e6;return (m===1?'un millón':letras(m,true)+' millones')+(r?' '+letras(r,apoc):' de')
+}
+function pesosLetra(x){const c=Math.round((Number(x)||0)*100),e=Math.floor(c/100),cc=c%100;return (e===1?'un peso ':letras(e)+' pesos ')+String(cc).padStart(2,'0')+'/100 m.n.'}
+function fechaAnio(d){if(!d)return'';const[y,m,dd]=d.split('-').map(Number);return dd+' de '+MESES[m-1]+' del '+y}
+function mensajePago(t,pg){
+  const p=prop(t.propiedadId)||{},pr=predioDe(p)||{};
+  const dir=p.direccion||pr.direccion||'';
+  const inm=[dir,p.interior?(p.tipo||'Departamento')+' '+p.interior:''].filter(Boolean).join(', ')||(p.nombre||'');
+  const dia=Number(t.diaPago)||1;
+  const monto=Number(pg.monto)||0;
+  const U=x=>String(x||'').toUpperCase();
+  return plant('recibo',{nombre:firstName(t.nombre),mes:MESES[Number(String(pg.mes).slice(5))-1]||'',propiedad:U(p.nombre),monto:money(pg.monto),
+    montodec:'$ '+monto.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),letra:pesosLetra(monto),
+    fechapago:U(fechaAnio(pg.fecha||today())),desde:U(fechaAnio(dueDate(pg.mes,dia))),hasta:U(fechaAnio(dueDate(addMonths(pg.mes,1),dia))),
+    inquilino:U(t.nombre),inmueble:U(inm),propietario:U(propietarioNombre())})}
 function enviarPagoWA(pg){if(!canWA())return;const t=get('inquilinos',pg.inquilinoId);if(!t)return;const tel=telWa(t.telefono);if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}window.open(waUrl(tel,mensajePago(t,pg)),'_blank','noopener')}
 const mDest=m=>{const d=String(m.destino||'');return{k:d.slice(0,1),id:d.slice(2)}};
 function mantProps(m){const{k,id}=mDest(m);return k==='e'?list('propiedades').filter(p=>p.predioId===id):[prop(id)].filter(Boolean)}
@@ -596,9 +619,9 @@ FLOWS.pago={
 FLOWS.pago.ok=function(){
   const pg=F.pg,t=get('inquilinos',pg.inquilinoId)||{};
   sheet(`<div class="shead"><span></span><button class="btn sm" data-a="close">${I.x} Cerrar</button></div><h2 class="q">Pago guardado</h2><div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span><span class="chip off">${money(pg.monto)} · ${mesLargo(pg.mes)}</span></div>
-    ${canWA()?`<label class="f">Mensaje de confirmación para ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensajePago(t,pg))}</div>`:''}
+    ${canWA()?`<label class="f">Recibo para ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensajePago(t,pg))}</div>`:''}
     ${t.telefono?'':'<p class="hint">Este inquilino no tiene WhatsApp registrado.</p>'}
-    <div class="sep"></div>${canWA()?`<button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Confirmar pago por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`:`<p class="hint">El propietario es quien envía la confirmación por WhatsApp.</p><button class="btn pri big full" data-a="close">Listo</button>`}`);
+    <div class="sep"></div>${canWA()?`<button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Enviar recibo por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`:`<p class="hint">El propietario es quien envía la confirmación por WhatsApp.</p><button class="btn pri big full" data-a="close">Listo</button>`}`);
 };
 /* Alta de inquilino */
 FLOWS.alta={
@@ -801,7 +824,7 @@ FLOWS.edit={
     else if(F.c==='revisiones'){const t=get('inquilinos',r.inquilinoId)||S.data.inquilinos[r.inquilinoId]||{};const pr=prop(r.propiedadId)||{};h=`<div class="box"><h3>Revisión de inventario</h3><div class="muted">${esc(pr.nombre||'')} · salida de ${esc(t.nombre||'')} · ${fechaLarga(r.fecha)}</div>${resItems(r.resultado)}${r.nota?`<p class="muted small">${esc(r.nota)}</p>`:''}</div>`}
     else if(F.c==='avisos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="box"><h3>Aviso a ${esc(t.nombre||'')}</h3><div class="muted">${ETAPA_TXT[r.etapa]} · ${mesLargo(r.mes)} · enviado el ${fechaLarga(r.fecha)}</div></div>`}
     const editable=!['avisos','revisiones'].includes(F.c);
-    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(F.c==='pagos'&&canWA()?`<button class="btn wa full" data-a="pg-wa" data-id="${r.id}">${I.chat} Enviar confirmación por WhatsApp</button><div class="sep"></div>`:'')+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
+    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(F.c==='pagos'&&canWA()?`<button class="btn wa full" data-a="pg-wa" data-id="${r.id}">${I.chat} Enviar recibo por WhatsApp</button><div class="sep"></div>`:'')+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
   },
   del(){sheet(shead('¿Borrar este registro?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="e-delok">'+I.trash+' Sí, borrar</button>')}
 };
@@ -1243,9 +1266,9 @@ function ajustes(){
   sheet(h);
 }
 function plantillas(){
-  const c=cfg();const lab={prev:'Recordatorio de renta (1 día hábil antes)',gen:'Mensaje de renta del mes (botón de la propiedad)',pago:'Al confirmar que recibiste un pago de renta',mant:'Aviso de mantenimiento',mantfin:'Cuando termina el mantenimiento'};
-  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {mes} {propietario}. En el recordatorio, {cuando} pone «mañana» o el día de la renta. En mantenimiento también {cuando} {motivo} {corte} {restab}.</p>
-    <label class="f" for="pl_prop">¿Con qué nombre firmas?</label><input class="inp" id="pl_prop" maxlength="60" value="${esc(c.propietario)}" placeholder="Ej. Lic. Carrera">
+  const c=cfg();const lab={recibo:'Recibo al recibir un pago de renta',prev:'Recordatorio de renta (1 día hábil antes)',gen:'Mensaje de renta del mes (botón de la propiedad)',mant:'Aviso de mantenimiento',mantfin:'Cuando termina el mantenimiento'};
+  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {mes} {propietario}. En el recibo también {montodec} {letra} {fechapago} {desde} {hasta} {inquilino} {inmueble}; la firma sale del nombre de arriba. En el recordatorio, {cuando} pone «mañana» o el día de la renta. En mantenimiento también {cuando} {motivo} {corte} {restab}.</p>
+    <label class="f" for="pl_prop">Tu nombre completo (firma del recibo)</label><input class="inp" id="pl_prop" maxlength="60" value="${esc(c.propietario)}" placeholder="Ej. Lic. Rodolfo Alcacio Trujillo">
     <label class="f" for="pl_neg">Nombre del negocio (opcional)</label><input class="inp" id="pl_neg" maxlength="80" value="${esc(c.negocio)}"><label class="f" for="pl_tel">Tu WhatsApp (10 dígitos)</label><input class="inp" id="pl_tel" inputmode="tel" maxlength="14" value="${esc(c.telPropietario)}"><p class="hint">A este número llega el aviso cuando alguien retira algo del inventario.</p>`;
   for(const k of Object.keys(DEF_PLANT))h+=`<label class="f" for="pl_${k}">${lab[k]}</label><textarea class="inp" id="pl_${k}" maxlength="500">${esc(c.plantillas[k])}</textarea>`;
   const t=activos()[0];
