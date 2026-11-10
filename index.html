@@ -460,6 +460,11 @@ function mensajeMant(t,m,fin){
 function mensajeInv(i){const c=cfg(),p=prop(i.propiedadId)||{};return'Hola'+(c.propietario?' '+c.propietario:'')+', te aviso que se retirará "'+i.nombre+'" de '+(p.nombre||'la propiedad')+(i.motivoRetiro?' ('+i.motivoRetiro+')':'')+'.'+(S.deviceName?' — '+S.deviceName:'')}
 function invDe(pid,est){return list('inventario').filter(i=>i.propiedadId===pid&&(!est||i.estado===est)).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))}
 function resItems(str){return String(str||'').split('|').filter(Boolean).map(x=>{const i=x.lastIndexOf('=');const v=RES[x.slice(i+1)]||RES.ok;return`<div class="tn"><span class="it"><b>${esc(x.slice(0,i))}</b></span><span class="chip ${v[1]}">${v[0]}</span></div>`}).join('')}
+function chkRows(inv){F.chk=F.chk||{};return inv.map(i=>`<div class="chk"><b>${esc(i.nombre)}</b>${i.descripcion?`<span class="muted small">${esc(i.descripcion)}</span>`:''}<div class="seg">${['ok','dano','falta'].map(v=>`<button class="btn sm${F.chk[i.id]===v?' on '+RES[v][1]:''}" data-a="b-chk" data-id="${i.id}" data-v="${v}">${RES[v][0]}</button>`).join('')}</div></div>`).join('')+`<label class="f" for="fnota">Observaciones (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(F.cnota||'')}"><div class="err" id="ferr" hidden></div>`}
+function chkProg(inv){F.chk=F.chk||{};return`<span class="chip info" id="chkprog">${inv.filter(i=>F.chk[i.id]).length} de ${inv.length} revisados</span>`}
+function chkRevisar(old,inv,fecha){const ch=F.chk||{};
+  if(inv.some(i=>!ch[i.id])){const rows=[...document.querySelectorAll('.chk')];let first=null;inv.forEach((i,k)=>{if(!ch[i.id]&&rows[k]){rows[k].classList.add('miss');first=first||rows[k]}});if(first)first.scrollIntoView({block:'center',behavior:'smooth'});return{err:'Faltan artículos por revisar (marcados en rojo).'}}
+  return{bad:inv.filter(i=>ch[i.id]!=='ok').length,op:{c:'revisiones',r:{id:uid(),inquilinoId:old.id,propiedadId:old.propiedadId,fecha,resultado:inv.map(i=>i.nombre.replace(/[=|]/g,' ')+'='+ch[i.id]).join('|').slice(0,1500),nota:val('fnota')}}}}
 function volverProp(pid){F={flow:'pdet',hist:[]};pdet(pid)}
 function redet(){const el=$('#sheet .sheet');const sc=el?el.scrollTop:0;FLOWS.mant.det();const e2=$('#sheet .sheet');if(e2)e2.scrollTop=sc}
 function msvSeg(){return`<div class="seg sv">${Object.keys(SERV).map(s=>`<button class="btn sm${F.msv.includes(s)?' on':''}" data-a="m-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div>`}
@@ -622,7 +627,11 @@ FLOWS.alta={
     const p=prop(F.pid),old=inqDe(F.pid),d=F.d;
     sheet(shead('¿Registramos a '+esc(firstName(d.nombre))+'?')+`<div class="box"><h3>${esc(d.nombre)}</h3><div class="muted">${esc(p.nombre)} · ${money(d.renta)} al mes · paga el día ${d.diaPago}</div><div class="muted">Contrato: del ${fechaCompleta(d.fechaInicio)} al ${fechaCompleta(d.fechaFin)}</div></div>
       ${old?`<div class="box" style="border-color:var(--oro-b);background:var(--oro-l)"><h3>${I.alert} ${esc(old.nombre)} se dará de baja</h3><div>Hoy aparece como inquilino de ${esc(p.nombre)}. Quedará en el historial con salida el ${fechaLarga(d.fechaInicio)}.</div></div>`:''}
-      <button class="btn pri big full" data-a="a-save">${I.check} Sí, registrar</button>`);
+      ${old&&invDe(F.pid,'en').length?`<p class="muted">Antes de registrar al nuevo inquilino, revisa el inventario que entrega ${esc(firstName(old.nombre))}.</p><button class="btn pri big full" data-a="a-chk">${I.list} Continuar: revisar inventario (${invDe(F.pid,'en').length})</button>`:`<button class="btn pri big full" data-a="a-save">${I.check} Sí, registrar</button>`}`);
+  },
+  chk(){
+    const p=prop(F.pid),old=inqDe(F.pid),inv=invDe(F.pid,'en');
+    sheet(shead('Revisa lo que entrega '+esc(firstName(old.nombre)),`<span class="chip off">${esc(p.nombre)}</span>${chkProg(inv)}`)+`<p class="muted">Marca cómo está cada cosa. Hay que revisar todo para poder registrar a ${esc(firstName(F.d.nombre))}.</p>`+chkRows(inv)+`<div class="sep"></div><button class="btn pri big full" data-a="a-save">${I.check} Registrar a ${esc(firstName(F.d.nombre))}</button>`);
   }
 };
 /* Baja */
@@ -640,8 +649,8 @@ FLOWS.baja={
       <div class="sep"></div>${inv.length?`<button class="btn pri big full" data-a="b-next">${I.list} Continuar: revisar inventario (${inv.length})</button>`:`<button class="btn danger big full" data-a="b-save">${I.userMinus} Sí, dar de baja</button>`}`);
   },
   chk(){
-    const t=get('inquilinos',F.tid),inv=invDe(t.propiedadId,'en');F.chk=F.chk||{};
-    sheet(shead('Revisa el inventario',`<span class="chip off">${esc(prop(t.propiedadId).nombre)}</span><span class="chip info" id="chkprog">${inv.filter(i=>F.chk[i.id]).length} de ${inv.length} revisados</span>`)+`<p class="muted">Marca cómo está cada cosa antes de que ${esc(firstName(t.nombre))} entregue. Hay que revisar todo para poder continuar.</p>`+inv.map(i=>`<div class="chk"><b>${esc(i.nombre)}</b>${i.descripcion?`<span class="muted small">${esc(i.descripcion)}</span>`:''}<div class="seg">${['ok','dano','falta'].map(v=>`<button class="btn sm${F.chk[i.id]===v?' on '+RES[v][1]:''}" data-a="b-chk" data-id="${i.id}" data-v="${v}">${RES[v][0]}</button>`).join('')}</div></div>`).join('')+`<label class="f" for="fnota">Observaciones (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(F.cnota||'')}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn danger big full" data-a="b-save">${I.userMinus} Dar de baja a ${esc(firstName(t.nombre))}</button>`);
+    const t=get('inquilinos',F.tid),inv=invDe(t.propiedadId,'en');
+    sheet(shead('Revisa el inventario',`<span class="chip off">${esc(prop(t.propiedadId).nombre)}</span>${chkProg(inv)}`)+`<p class="muted">Marca cómo está cada cosa antes de que ${esc(firstName(t.nombre))} entregue. Hay que revisar todo para poder continuar.</p>`+chkRows(inv)+`<div class="sep"></div><button class="btn danger big full" data-a="b-save">${I.userMinus} Dar de baja a ${esc(firstName(t.nombre))}</button>`);
   }
 };
 /* Propiedad nueva, edificio con departamentos, o edición */
@@ -835,10 +844,12 @@ const ACT={
     if(!fin)return showErr('Pon la fecha en que termina el contrato.');
     if(fin<=ini)return showErr('El contrato debe terminar después de su fecha de inicio.');
     F.d={nombre,telefono:tel.length===10?tel:tel.slice(-10),renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:fin,notas:val('fnota')};go('conf')},
-  'a-save'(){const d=F.d,old=inqDe(F.pid),ops=[];
+  'a-chk'(){go('chk')},
+  'a-save'(){const d=F.d,old=inqDe(F.pid),ops=[];let bad=0;
+    if(old){const inv=invDe(F.pid,'en');if(inv.length){const r=chkRevisar(old,inv,d.fechaInicio);if(r.err)return showErr(r.err);bad=r.bad;ops.push(r.op)}}
     if(old)ops.push({c:'inquilinos',r:Object.assign({},old,{estado:'baja',fechaBaja:d.fechaInicio})});
     ops.push({c:'inquilinos',r:Object.assign({id:uid(),propiedadId:F.pid,estado:'activo',fechaBaja:''},d)});
-    closeSheet();commit(ops,firstName(d.nombre)+' quedó registrado')},
+    closeSheet();commit(ops,firstName(d.nombre)+' quedó registrado'+(bad?' · '+bad+' artículo'+(bad>1?'s':'')+' con observaciones':''))},
   renov(d){startFlow('renov',{tid:d.id})},
   'rn-dur'(d){const t=get('inquilinos',F.tid);const hoy=today();const base=t.fechaFin&&t.fechaFin>hoy?t.fechaFin:hoy;const fin=addMesesFecha(base,Number(d.n));closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:fin})}],'Contrato renovado hasta el '+fechaLarga(fin))},
   'rn-otra'(){go('otra')},
@@ -902,12 +913,10 @@ const ACT={
   'inv-del'(){go('del')},
   'inv-delok'(){const i=get('inventario',F.id);const pid=F.pid;if(i)commit([{c:'inventario',r:Object.assign({},i,{eliminado:1})}],'Artículo borrado');volverProp(pid)},
   'b-next'(){F.fsal=val('ffecha')||today();go('chk')},
-  'b-chk'(d,b){F.chk=F.chk||{};F.chk[d.id]=d.v;b.parentElement.querySelectorAll('.btn').forEach(x=>{x.className='btn sm'});b.className='btn sm on '+RES[d.v][1];b.closest('.chk').classList.remove('miss');const inv=invDe((get('inquilinos',F.tid)||{}).propiedadId,'en');const e=$('#chkprog');if(e)e.textContent=inv.filter(i=>F.chk[i.id]).length+' de '+inv.length+' revisados'},
+  'b-chk'(d,b){F.chk=F.chk||{};F.chk[d.id]=d.v;b.parentElement.querySelectorAll('.btn').forEach(x=>{x.className='btn sm'});b.className='btn sm on '+RES[d.v][1];b.closest('.chk').classList.remove('miss');const inv=invDe(F.pid||(get('inquilinos',F.tid)||{}).propiedadId,'en');const e=$('#chkprog');if(e)e.textContent=inv.filter(i=>F.chk[i.id]).length+' de '+inv.length+' revisados'},
   'b-quien'(d){F.tid=d.id;go('conf')},
   'b-save'(){const t=get('inquilinos',F.tid);const f=F.fsal||val('ffecha')||today();const inv=invDe(t.propiedadId,'en'),ops=[];let bad=0;
-    if(inv.length){const ch=F.chk||{};if(inv.some(i=>!ch[i.id])){const rows=[...document.querySelectorAll('.chk')];let first=null;inv.forEach((i,k)=>{if(!ch[i.id]&&rows[k]){rows[k].classList.add('miss');first=first||rows[k]}});if(first)first.scrollIntoView({block:'center',behavior:'smooth'});return showErr('Faltan artículos por revisar (marcados en rojo).')}
-      bad=inv.filter(i=>ch[i.id]!=='ok').length;
-      ops.push({c:'revisiones',r:{id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,fecha:f,resultado:inv.map(i=>i.nombre.replace(/[=|]/g,' ')+'='+ch[i.id]).join('|').slice(0,1500),nota:val('fnota')}})}
+    if(inv.length){const r=chkRevisar(t,inv,f);if(r.err)return showErr(r.err);bad=r.bad;ops.push(r.op)}
     ops.push({c:'inquilinos',r:Object.assign({},t,{estado:'baja',fechaBaja:f})});
     closeSheet();commit(ops,firstName(t.nombre)+' quedó dado de baja'+(bad?' · '+bad+' artículo'+(bad>1?'s':'')+' con observaciones':''))},
   'pr-tipo'(d){F.tipo=d.t;document.querySelectorAll('[data-a="pr-tipo"]').forEach(b=>b.classList.toggle('on',b.dataset.t===d.t))},
