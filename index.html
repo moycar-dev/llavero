@@ -40,7 +40,7 @@ h1,h2,h3{margin:0;line-height:1.2}
 
 /* Encabezado */
 header.top{background:#fff;color:var(--ink);padding:calc(14px + env(safe-area-inset-top)) 20px 14px;position:relative;border-bottom:1px solid var(--line)}
-header.top::after{content:"";position:absolute;left:20px;bottom:-1px;width:44px;height:2px;background:var(--oro)}
+header.top::after{content:"";position:absolute;left:max(20px,calc((100% - 760px)/2));bottom:-1px;width:44px;height:2px;background:var(--oro)}
 .hrow{display:flex;align-items:center;gap:14px;max-width:760px;margin:0 auto}
 .logo{width:44px;height:44px;flex:none}
 .logo svg{width:44px;height:44px;stroke:none}
