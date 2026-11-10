@@ -1,0 +1,6 @@
+*.gs
+backend/
+.clasp.json
+*.csv
+.env
+.DS_Store

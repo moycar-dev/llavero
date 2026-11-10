@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://script.google.com https://script.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#12365A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Traza Casa">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="favicon-48.png" sizes="48x48" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Traza Casa</title>
+<style>
+:root{
+  --bg:#FFFFFF; --soft:#F6F8FB; --card:#F6F8FB; --ink:#12365A; --muted:#62748B; --line:#E7EBF1; --line2:#D3DBE6;
+  --azul:#1A4772; --azul-d:#12365A; --azul-l:#EAF0F7; --azul-b:#C9D6E6;
+  --oro:#BE900E; --oro-t:#7D5C06; --oro-l:#FAF3DC; --oro-b:#E3CF8E;
+  --cielo:#2F6AA0; --cielo-l:#E4EEF8;
+  --lav:#5B6B82; --lav-l:#EBEFF4;
+  --verde:#2E7D4F; --verde-l:#E3F2E9;
+  --rojo:#B3261E; --rojo-l:#FBE6E4;
+  --r:20px;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif",serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden}
+body{display:flex;flex-direction:column;height:100dvh;background:var(--bg);color:var(--ink);font:19px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+h1,h2,h3{margin:0;line-height:1.2}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--azul);outline-offset:2px}
+
+/* Encabezado */
+header.top{background:#fff;color:var(--ink);padding:calc(14px + env(safe-area-inset-top)) 20px 14px;position:relative;border-bottom:1px solid var(--line)}
+header.top::after{content:"";position:absolute;left:20px;bottom:-1px;width:44px;height:2px;background:var(--oro)}
+.hrow{display:flex;align-items:center;gap:14px;max-width:760px;margin:0 auto}
+.logo{width:44px;height:44px;flex:none}
+.logo svg{width:44px;height:44px;stroke:none}
+.logo svg rect{stroke:var(--line2);stroke-width:1.2}
+.htxt{flex:1;min-width:0}
+.brand{font-size:15px;color:var(--azul);font-weight:600;letter-spacing:.01em}
+.hello{font-family:var(--serif);font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.clock{font-size:15px;color:var(--muted)}
+.gear{background:transparent;border:0;color:var(--muted);border-radius:50%;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center}
+.gear:active{background:var(--soft)}
+
+/* Estado */
+.status{display:flex;align-items:center;gap:8px;font-size:16px;color:var(--muted);margin:0 0 16px;padding:12px 16px;background:var(--soft);border-radius:16px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--verde);flex:none}
+.dot.warn{background:var(--oro)} .dot.bad{background:var(--rojo)} .dot.off{background:#9AA7BA}
+.status button{margin-left:auto}
+
+main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px 32px}
+.in{max-width:760px;margin:0 auto}
+section{margin-bottom:32px}
+.sh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 8px}
+.sh h2{font-family:var(--serif);font-size:25px;font-weight:600}
+.sh .cnt{font-size:16px;color:var(--muted);font-weight:500}
+.card{background:var(--soft);border:0;border-radius:var(--r);padding:20px;box-shadow:none}
+.muted{color:var(--muted)}
+.small{font-size:16px}
+
+/* Botones: planos */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:54px;padding:10px 22px;border-radius:999px;background:#fff;border:1.5px solid var(--line2);box-shadow:none;color:var(--azul-d);font-weight:600;text-decoration:none;transition:background .12s,transform .08s}
+.btn:active{background:var(--azul-l);transform:scale(.98)}
+.btn.pri,.btn.wa{background:var(--azul);color:#fff;border-color:var(--azul)}
+.btn.pri:active,.btn.wa:active{background:var(--azul-d)}
+.btn.danger{background:var(--rojo);color:#fff;border-color:var(--rojo)}
+.btn.gold{background:var(--oro-l);color:var(--oro-t);border-color:var(--oro-b)}
+.btn.sm{min-height:46px;padding:6px 18px;font-size:17px}
+.btn.full{width:100%}
+.btn.big{min-height:62px;font-size:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.btn{flex:1}
+
+/* Tu día */
+.daytop{display:flex;align-items:center;gap:14px;margin-bottom:4px}
+.prog{flex:1;height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--azul);border-radius:4px}
+.item{display:flex;align-items:center;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.ic{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.ic svg{width:22px;height:22px}
+.ic.done{background:var(--verde-l);color:var(--verde)}
+.ic.wait{background:var(--oro-l);color:var(--oro-t)}
+.ic.late{background:var(--rojo-l);color:var(--rojo)}
+.it{flex:1;min-width:0}
+.it b{display:block;font-size:19px;font-weight:600}
+.it span{display:block;font-size:16px;color:var(--muted)}
+.item .btn{flex:none;min-height:46px;padding:6px 16px;font-size:17px}
+.item .btn svg{width:20px;height:20px}
+.item{align-items:flex-start}
+@media (max-width:420px){.item .it b{font-size:18px}.item .btn.wa{padding:6px 14px}}
+.done-t b{color:var(--muted);font-weight:500}
+
+/* Acciones */
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.act{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:18px;min-height:128px;padding:18px;border-radius:var(--r);background:var(--soft);border:0;box-shadow:none;text-align:left;font-size:19px;font-weight:600;color:var(--ink);transition:background .12s,transform .08s}
+.act:active{background:var(--azul-l);transform:scale(.98)}
+.act .ic{width:46px;height:46px;background:#fff;color:var(--azul);box-shadow:inset 0 0 0 1px var(--line)}
+.act .ic svg{width:24px;height:24px}
+.act small{display:block;font-size:15px;font-weight:400;color:var(--muted);margin-top:2px}
+
+/* Listas */
+.li{display:flex;align-items:center;gap:14px;width:100%;padding:14px 2px;background:none;border:0;border-top:1px solid var(--line);text-align:left}
+.li:first-child{border-top:0}
+.li .amt{font-weight:600;white-space:nowrap}
+.s-luz{background:var(--oro-l);color:var(--oro-t)}
+.s-agua{background:var(--cielo-l);color:var(--cielo)}
+.s-gas{background:var(--lav-l);color:var(--lav)}
+.s-pago{background:var(--verde-l);color:var(--verde)}
+.s-inq{background:var(--azul-l);color:var(--azul)}
+.s-aviso{background:var(--oro-l);color:var(--oro-t)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;padding:4px 12px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--verde-l);color:var(--verde)}
+.chip.warn{background:var(--oro-l);color:var(--oro-t)}
+.chip.bad{background:var(--rojo-l);color:var(--rojo)}
+.chip.info{background:var(--azul-l);color:var(--azul)}
+.chip.off{background:#EEF1F5;color:var(--muted)}
+
+/* Propiedades */
+.pcard{display:block;width:100%;text-align:left;background:var(--soft);border:0;border-radius:var(--r);padding:20px;margin-bottom:12px;box-shadow:none;transition:background .12s,transform .08s}
+.pcard:active{background:var(--azul-l);transform:scale(.99)}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.ptype{font-size:15px;font-weight:500;color:var(--muted)}
+.pn{font-family:var(--serif);font-size:23px;font-weight:600}
+.pt{color:var(--muted);font-size:17px;margin-top:2px}
+.ps{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* Filtros */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin:0 -2px 6px}
+.filters .btn{flex:none;min-height:44px;font-size:17px;padding:6px 18px}
+.filters .btn.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+
+/* Resumen */
+.mnav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+.mnav b{font-family:var(--serif);font-size:24px;font-weight:600;text-transform:capitalize}
+.kpi{font-size:40px;font-weight:500;letter-spacing:-.02em;line-height:1.1;margin:6px 0;font-variant-numeric:tabular-nums}
+.kl{font-size:16px;font-weight:500;color:var(--muted)}
+.phrase{font-size:18px;margin-top:6px}
+.grid2{display:grid;gap:14px}
+.chg{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--line2)}
+.chg:first-child{border-top:0}
+.up{color:var(--rojo)} .down{color:var(--verde)}
+.note{background:#fff;border-left:3px solid var(--oro);padding:10px 14px;border-radius:4px 12px 12px 4px;font-size:16px;margin-top:10px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:15px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:0}
+.bar{height:6px;background:var(--line2);border-radius:6px;overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;background:var(--azul);border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 4px;text-align:right;border-bottom:1px solid var(--line2)}
+th{font-weight:500;color:var(--muted)}
+th:first-child,td:first-child{text-align:left}
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+
+/* Navegación */
+nav.tabs{display:flex;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);box-shadow:none}
+nav.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:64px;background:none;border:0;font-size:15px;font-weight:500;color:var(--muted);position:relative}
+nav.tabs button.on{color:var(--azul);font-weight:600}
+nav.tabs button.on::before{content:"";position:absolute;top:-1px;left:34%;right:34%;height:2px;background:var(--oro)}
+
+/* Ventanas */
+.wrap{position:fixed;inset:0;background:rgba(18,54,90,.38);display:flex;align-items:flex-end;z-index:20}
+.sheet{background:#fff;width:100%;max-height:92dvh;overflow-y:auto;border-radius:28px 28px 0 0;padding:12px 20px calc(26px + env(safe-area-inset-bottom));animation:up .22s ease-out;border:0}
+.sheet::before{content:"";display:block;width:40px;height:4px;border-radius:4px;background:var(--line2);margin:0 auto 12px}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet,.toast{animation:none}.btn,.act,.pcard{transition:none}}
+.shead{display:flex;justify-content:space-between;gap:10px;margin-bottom:12px}
+.q{font-family:var(--serif);font-size:28px;font-weight:600;margin:6px 2px 18px}
+.opts{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;padding:12px 18px;background:var(--soft);border:0;border-radius:18px;box-shadow:none;text-align:left;font-size:20px;font-weight:600;transition:background .12s,transform .08s}
+.opt:active{background:var(--azul-l);transform:scale(.99)}
+.opt .it span{font-weight:400}
+label.f{display:block;font-weight:600;margin:16px 2px 6px}
+.inp{width:100%;min-width:0;font:inherit;font-size:20px;padding:14px 16px;border:1.5px solid var(--line2);border-radius:16px;background:#fff;color:var(--ink);-webkit-appearance:none;appearance:none}
+textarea.inp{min-height:110px;resize:vertical}
+select.inp{background-image:linear-gradient(45deg,transparent 50%,var(--azul) 50%),linear-gradient(135deg,var(--azul) 50%,transparent 50%);background-position:calc(100% - 22px) 52%,calc(100% - 15px) 52%;background-size:7px 7px;background-repeat:no-repeat;padding-right:40px}
+.inp:focus{outline:2px solid var(--azul);outline-offset:1px;border-color:var(--azul)}
+.money{display:flex;align-items:center;background:#fff;border:1.5px solid var(--line2);border-radius:18px;padding:0 18px}
+.money span{font-size:32px;font-weight:500;color:var(--muted)}
+.money input{border:0;outline:0;font:inherit;font-size:40px;font-weight:500;width:100%;min-width:0;padding:12px 8px;background:none;color:var(--ink);font-variant-numeric:tabular-nums}
+.money:focus-within{outline:2px solid var(--azul);outline-offset:1px;border-color:var(--azul)}
+.hint{font-size:16px;color:var(--muted);margin:8px 2px 0}
+.err{color:var(--rojo);font-size:16px;font-weight:600;margin:8px 2px 0}
+.ctx{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 2px 14px}
+.more{margin-top:16px}
+.more summary{display:inline-flex}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg .btn{flex:1;min-width:120px}
+.seg .btn.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two>div{min-width:0}
+.box{background:var(--soft);border:0;border-radius:18px;padding:18px;margin-bottom:14px}
+.box h3{font-size:19px;font-weight:600;margin-bottom:6px}
+.sep{height:14px}
+.waprev{background:var(--azul-l);border-radius:16px 16px 16px 4px;padding:14px 16px;font-size:17px;white-space:pre-wrap;margin:8px 0 12px;border:0}
+
+/* Aviso de guardado */
+.toast{position:fixed;left:20px;right:20px;bottom:calc(84px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;background:var(--azul-d);color:#fff;border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:12px;z-index:40;box-shadow:0 10px 30px rgba(18,54,90,.28);animation:up .2s ease-out}
+.toast .ic{background:var(--oro);color:#fff;width:42px;height:42px}
+.toast .ic svg{width:24px;height:24px;stroke-width:2.6}
+.toast b{flex:1;font-size:18px;font-weight:600}
+.toast .btn{min-height:44px;background:#fff;color:var(--azul-d);border-color:#fff;box-shadow:none}
+.toast.bad .ic{background:#fff;color:var(--rojo)}
+
+.empty{text-align:center;padding:30px 16px}
+.empty .ic{margin:0 auto 12px;width:60px;height:60px;background:var(--azul-l);color:var(--azul)}
+.empty .ic svg{width:30px;height:30px}
+.demo{background:var(--oro-l);color:var(--oro-t);border:0;font-weight:600;font-size:14px;text-align:center;padding:5px 10px}
+
+@media (max-width:370px){.two{grid-template-columns:1fr}.acts{gap:10px}.act{font-size:18px}}
+@media (min-width:760px){
+  .wrap{align-items:center;justify-content:center}
+  .sheet{max-width:600px;border-radius:28px}
+  .acts{grid-template-columns:repeat(4,1fr)}
+  .grid2{grid-template-columns:1fr 1fr}
+  .plist{display:grid;grid-template-columns:1fr 1fr;gap:12px}.plist .pcard{margin:0}
+  nav.tabs{justify-content:center}nav.tabs button{max-width:190px}
+}
+
+/* Ajustes de calma */
+main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
+.clock{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .btn.wa svg{display:none}
+.item .it span{line-height:1.35}
+</style>
+</head>
+<body>
+<div class="demo" id="demoBar" hidden>Modo demostración · los datos son de ejemplo y no se guardan</div>
+<header class="top">
+  <div class="hrow">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 64 64"><rect x="1" y="1" width="62" height="62" rx="16" fill="#FFFFFF" stroke="#BE900E" stroke-width="2"/><g transform="translate(6.80 25.80)"><polyline points="0.00,13.00 27.60,0.00 44.50,12.00 44.50,15.00" fill="none" stroke="#1A4772" stroke-width="2.2" stroke-linejoin="miter"/><path transform="scale(1.0)" d="M44.6 -2.5999999999999996Q45.528 2.2720000000000002 50.4 3.2Q45.528 4.128 44.6 9.0Q43.672000000000004 4.128 38.800000000000004 3.2Q43.672000000000004 2.2720000000000002 44.6 -2.5999999999999996Z" fill="#BE900E"/></g></svg></div>
+    <div class="htxt"><div class="brand">Traza Casa</div><div class="hello" id="hello">Hola</div><div class="clock" id="clock"></div></div>
+    <button class="gear" data-a="ajustes" aria-label="Ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+</header>
+<main id="main"></main>
+<nav class="tabs" id="nav"></nav>
+<div class="wrap" id="sheet" hidden></div>
+<div id="toastBox"></div>
+
+<script>
+'use strict';
+const VER='1.1.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const DEMO=new URLSearchParams(location.search).has('demo');
+const COLS={
+  predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
+  propiedades:['nombre','tipo','direccion','renta','diaPago','servicios','notas','predioId','interior','predialMonto','predialFecha','predialClave','predialPagado'],
+  inquilinos:['propiedadId','nombre','telefono','renta','diaPago','fechaInicio','fechaFin','fechaBaja','estado','notas'],
+  gastos:['propiedadId','servicio','mes','monto','nota'],
+  pagos:['inquilinoId','propiedadId','mes','fecha','monto','nota'],
+  avisos:['inquilinoId','mes','etapa','fecha'],
+  comentarios:['clave','texto','fecha']
+};
+const NUMF={renta:1,diaPago:1,monto:1,predialMonto:1};
+const SERV={luz:{n:'Luz',i:'bolt'},agua:{n:'Agua',i:'drop'},gas:{n:'Gas',i:'flame'}};
+const SCOL={luz:'#BE900E',agua:'#2F6AA0',gas:'#5B6B82'};
+const TIPOS=['Departamento','Casa','Local','Cuarto','Otro'];
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DEF_PLANT={
+  p15:'Hola {nombre}, te saluda {propietario}. Te recuerdo que la renta de {propiedad} por {monto} vence el {fecha}, en 15 días. ¡Gracias!',
+  p10:'Hola {nombre}, un recordatorio amable: la renta de {propiedad} por {monto} vence el {fecha}, en 10 días. Gracias.',
+  p3:'Hola {nombre}, la renta de {propiedad} por {monto} vence en 3 días ({fecha}). Si ya pagaste, ignora este mensaje. Gracias.',
+  venc:'Hola {nombre}, la renta de {propiedad} por {monto} venció el {fecha}. ¿Me confirmas cuándo puedes realizar el pago? Gracias.',
+  gen:'Hola {nombre}, te recuerdo que la renta de {mes} de {propiedad} es de {monto} y vence el {fecha}. Gracias.'
+};
+const ETAPA_TXT={'15':'15 días antes','10':'10 días antes','3':'3 días antes','venc':'Renta vencida'};
+
+/* ---------- Íconos ---------- */
+const P={
+  bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  drop:'<path d="M12 2.5S5 10 5 15a7 7 0 0 0 14 0c0-5-7-12.5-7-12.5z"/>',
+  flame:'<path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-2 2-4 5-4 8 0 4 3 7 6 7z"/>',
+  cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/>',
+  userPlus:'<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7M19 8v6M16 11h6"/>',
+  userMinus:'<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7M16 11h6"/>',
+  home:'<path d="M3 11 12 3l9 8M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  chat:'<path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  check:'<path d="M5 12.5 10 17 19 7"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  key:'<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/>',
+  alert:'<path d="M12 3 2 21h20zM12 10v5M12 18h.01"/>',
+  note:'<path d="M4 4h16v12H8l-4 4z"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  share:'<path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/>',
+  up:'<path d="M12 19V5M5 12l7-7 7 7"/>',
+  down:'<path d="M12 5v14M5 12l7 7 7-7"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>',
+  refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  download:'<path d="M12 3v12M7 10l5 5 5-5M5 20h14"/>'
+};
+const I=new Proxy({},{get:(_,k)=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(P[k]||'')+'</svg>'});
+
+/* ---------- Utilidades ---------- */
+const $=s=>document.querySelector(s);
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function uid(){const a='abcdefghijklmnopqrstuvwxyz0123456789';let r='';const b=new Uint8Array(5);crypto.getRandomValues(b);for(const x of b)r+=a[x%36];return Date.now().toString(36)+r}
+const fmtD=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'});
+const fmtH=new Intl.DateTimeFormat('es-MX',{timeZone:TZ,hour:'numeric',minute:'2-digit'});
+const fmtHr=new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',hour12:false});
+const MXN=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0});
+function money(n){return MXN.format(Math.round(Number(n)||0))}
+function today(){return fmtD.format(new Date())}
+function curMonth(){return today().slice(0,7)}
+function addMonths(m,n){let[y,mo]=m.split('-').map(Number);mo+=n;y+=Math.floor((mo-1)/12);mo=((mo-1)%12+12)%12+1;return y+'-'+String(mo).padStart(2,'0')}
+function dim(y,m){return new Date(Date.UTC(y,m,0)).getUTCDate()}
+function dueDate(mes,dia){const[y,m]=mes.split('-').map(Number);return mes+'-'+String(Math.min(dia,dim(y,m))).padStart(2,'0')}
+function dayDiff(a,b){return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5)}
+function fechaLarga(d){if(!d)return'';const[y,m,dd]=d.split('-').map(Number);return dd+' de '+MESES[m-1]}
+function mesLargo(m){const[y,mo]=m.split('-').map(Number);return MESES[mo-1]+' '+y}
+function mesCorto(m){return MESES[Number(m.slice(5))-1].slice(0,3)}
+function median(a){const b=[...a].sort((x,y)=>x-y),n=b.length;return n?(n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2):0}
+function num(v){const n=Number(String(v).replace(/[$,\s]/g,''));return isFinite(n)?n:NaN}
+function telWa(t){let d=String(t||'').replace(/\D/g,'');if(d.length===10)return'52'+d;if(d.length===13&&d.startsWith('521'))return'52'+d.slice(3);if(d.length===12&&d.startsWith('52'))return d;return null}
+function okUrl(u){return typeof u==='string'&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/.test(u)}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+function firstName(n){return String(n||'').trim().split(/\s+/)[0]||''}
+function dd(n){return n+' día'+(n===1?'':'s')}
+function fechaCompleta(f){return f?fechaLarga(f)+' de '+f.slice(0,4):''}
+function addMesesFecha(f,n){const[y,m,d]=f.split('-').map(Number);const t=y*12+(m-1)+n;const yy=Math.floor(t/12),mm=t%12+1;return yy+'-'+String(mm).padStart(2,'0')+'-'+String(Math.min(d,dim(yy,mm))).padStart(2,'0')}
+function addDays(f,n){return new Date(Date.parse(f+'T00:00:00Z')+n*864e5).toISOString().slice(0,10)}
+function addYear(f){const[y,m,d]=f.split('-');return (Number(y)+1)+'-'+m+'-'+(m==='02'&&d==='29'?'28':d)}
+function chipContrato(t){if(!t||!t.fechaFin)return'';const d=dayDiff(today(),t.fechaFin);if(d<0)return'<span class="chip bad">Contrato vencido</span>';if(d<=60)return`<span class="chip warn">Contrato vence en ${dd(d)}</span>`;return`<span class="chip off">Contrato hasta el ${fechaLarga(t.fechaFin)}</span>`}
+function chipPredial(r){if(!r||!r.predialFecha)return'';const d=dayDiff(today(),r.predialFecha);if(d<0)return'<span class="chip bad">Predial vencido</span>';if(d<=30)return`<span class="chip warn">Predial vence en ${dd(d)}</span>`;return`<span class="chip off">Predial: ${fechaLarga(r.predialFecha)}</span>`}
+function predioDe(p){return p&&p.predioId?get('predios',p.predioId):null}
+
+/* ---------- Estado ---------- */
+function blank(){const d={};for(const c in COLS)d[c]={};return{v:1,data:d,pend:[],conn:null,device:null,deviceName:'',rol:null,config:null,configDirty:0,lastSync:0,status:'none',err:null}}
+function load(){
+  if(DEMO)return demoState();
+  try{const j=JSON.parse(ls(LSK));if(j&&j.v===1){const b=blank();Object.assign(b,j);b.data=Object.assign(blank().data,j.data||{});return b}}catch(e){}
+  return blank();
+}
+function save(){if(!DEMO)ls(LSK,JSON.stringify(S))}
+let S=load();
+if(!S.device){const a=new Uint8Array(12);crypto.getRandomValues(a);S.device=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');save()}
+
+function list(c){return Object.values(S.data[c]||{}).filter(r=>!Number(r.eliminado))}
+function get(c,id){const r=S.data[c][id];return r&&!Number(r.eliminado)?r:null}
+function prop(id){return get('propiedades',id)}
+function activos(){return list('inquilinos').filter(t=>t.estado==='activo'&&prop(t.propiedadId))}
+function inqDe(pid){return list('inquilinos').find(t=>t.propiedadId===pid&&t.estado==='activo')}
+function hasServ(p,s){return String(p.servicios||'luz,agua,gas').split(',').includes(s)}
+function isOwner(){return DEMO||!S.conn||S.rol==='propietario'}
+function canEdit(c,r){if(isOwner())return true;return['gastos','pagos','avisos'].includes(c)&&(!r||r.por===S.device||!r.por)}
+function cfg(){const c=S.config||{};return{negocio:c.negocio||'',propietario:c.propietario||'',plantillas:Object.assign({},DEF_PLANT,c.plantillas||{}),v:c.v||1,updatedAt:c.updatedAt||0}}
+function propsOrd(){return list('propiedades').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}))}
+
+/* ---------- Renta: cuándo toca y qué aviso sigue ---------- */
+function estadoRenta(t){
+  const hoy=today(),M=curMonth(),dia=Number(t.diaPago)||1,ini=t.fechaInicio||hoy;
+  const pag=new Set(list('pagos').filter(p=>p.inquilinoId===t.id).map(p=>p.mes));
+  let m=addMonths(M,-2);if(m<ini.slice(0,7))m=ini.slice(0,7);
+  for(let i=0;i<8;i++,m=addMonths(m,1)){
+    const due=dueDate(m,dia);if(due<ini||pag.has(m))continue;
+    const dias=dayDiff(hoy,due);
+    const etapa=dias<0?'venc':dias<=3?'3':dias<=10?'10':dias<=15?'15':null;
+    return{mes:m,due,dias,etapa};
+  }
+  return null;
+}
+function avisoDe(t,st){return list('avisos').find(a=>a.inquilinoId===t.id&&a.mes===st.mes&&a.etapa===st.etapa)}
+function chipRenta(st){
+  if(!st)return'<span class="chip ok">Al corriente</span>';
+  if(st.dias<0)return`<span class="chip bad">Atrasado ${-st.dias} día${st.dias===-1?'':'s'}</span>`;
+  if(st.dias===0)return'<span class="chip bad">Vence hoy</span>';
+  if(st.dias<=15)return`<span class="chip warn">Vence en ${st.dias} día${st.dias===1?'':'s'}</span>`;
+  return`<span class="chip ok">Próximo pago: ${fechaLarga(st.due)}</span>`;
+}
+function mensaje(t,st,etapa){
+  const p=prop(t.propiedadId)||{},c=cfg();
+  const tpl=c.plantillas[etapa==='venc'?'venc':etapa?'p'+etapa:'gen'];
+  const v={nombre:firstName(t.nombre),mes:st?MESES[Number(st.mes.slice(5))-1]:'',propiedad:p.nombre||'',monto:money(t.renta),fecha:st?fechaLarga(st.due):'',dias:st?Math.abs(st.dias):'',propietario:c.propietario||S.deviceName||''};
+  return tpl.replace(/\{(\w+)\}/g,(m,k)=>k in v?v[k]:m);
+}
+
+/* ---------- Guardar, deshacer y sincronizar ---------- */
+const inflight=new Set();let syncing=false,tm=null;
+function put(c,rec){const old=S.data[c][rec.id];rec.updatedAt=Math.max(Date.now(),(old&&old.updatedAt||0)+1);if(!rec.eliminado)rec.eliminado=0;S.data[c][rec.id]=rec;const k=c+':'+rec.id;if(!S.pend.includes(k))S.pend.push(k)}
+function afterChange(){save();render();schedule(5000)}
+function schedule(ms){clearTimeout(tm);tm=setTimeout(sync,ms)}
+function commit(ops,msg){
+  const undo=ops.map(o=>({c:o.c,id:o.r.id,prev:S.data[o.c][o.r.id]?Object.assign({},S.data[o.c][o.r.id]):null}));
+  for(const o of ops)put(o.c,o.r);
+  afterChange();
+  toast(msg||'Listo, quedó guardado',()=>{
+    for(const u of undo.reverse()){
+      const k=u.c+':'+u.id;
+      if(u.prev)put(u.c,Object.assign({},u.prev));
+      else if(S.pend.includes(k)&&!inflight.has(k)){delete S.data[u.c][u.id];S.pend=S.pend.filter(x=>x!==k)}
+      else put(u.c,Object.assign({},S.data[u.c][u.id],{eliminado:1}));
+    }
+    afterChange();toast('Se deshizo el cambio');
+  });
+}
+function cleanRec(c,r){if(!r)return null;const o={id:r.id,eliminado:Number(r.eliminado)?1:0,updatedAt:r.updatedAt};for(const f of COLS[c])o[f]=NUMF[f]?(r[f]===''||r[f]==null?'':Number(r[f])):String(r[f]==null?'':r[f]);return o}
+async function sync(manual){
+  if(DEMO){if(manual)toast('En la demostración no hay conexión');return}
+  if(!S.conn||syncing)return;
+  syncing=true;renderStatus();
+  const sent={};const ops=[];
+  for(const k of S.pend.slice(0,400)){const i=k.indexOf(':'),c=k.slice(0,i),id=k.slice(i+1);const r=cleanRec(c,S.data[c][id]);if(r){ops.push({col:c,rec:r});sent[k]=r.updatedAt;inflight.add(k)}}
+  const cfgSent=S.configDirty;
+  const body={action:'push',key:S.conn.k,device:S.device,deviceName:S.deviceName||'Sin nombre',ops};
+  if(cfgSent&&S.rol==='propietario')body.config=cfg();
+  try{
+    const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),30000);
+    const res=await fetch(S.conn.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl.signal,redirect:'follow',credentials:'omit'});
+    clearTimeout(to);
+    const j=await res.json();
+    if(!j.ok){S.status=j.status==='pending'?'pending':'error';S.err=j.error||null;if(j.status==='pending')S.rol=null}
+    else{
+      const nd={};for(const c in COLS){nd[c]={};for(const r of(j.data&&j.data[c])||[])nd[c][r.id]=r}
+      const keep=[];
+      for(const k of S.pend){const i=k.indexOf(':'),c=k.slice(0,i),id=k.slice(i+1);const loc=S.data[c][id];
+        if(k in sent&&(!loc||loc.updatedAt===sent[k]))continue;
+        if(loc){nd[c][id]=loc;keep.push(k)}}
+      S.data=nd;S.pend=keep;S.rol=j.rol;
+      if(S.configDirty===cfgSent){S.configDirty=0;if(j.config)S.config=j.config}
+      S.lastSync=Date.now();S.status='ok';S.err=null;
+      if(j.rejected&&j.rejected.length&&manual!==false)toast('Algunos cambios no se permitieron con tu tipo de acceso',null,true);
+    }
+  }catch(e){S.status='offline'}
+  inflight.clear();syncing=false;save();render();
+  if(S.status==='ok'&&S.pend.length)schedule(1500);
+}
+
+/* ---------- Aviso de guardado ---------- */
+let toastT=null;
+function toast(msg,undo,bad){
+  clearTimeout(toastT);
+  $('#toastBox').innerHTML=`<div class="toast${bad?' bad':''}" role="status"><div class="ic">${bad?I.alert:I.check}</div><b>${esc(msg)}</b>${undo?'<button class="btn sm" data-a="undo">Deshacer</button>':''}</div>`;
+  window._undo=undo||null;
+  toastT=setTimeout(()=>{$('#toastBox').innerHTML='';window._undo=null},undo?4000:2600);
+}
+
+/* ---------- Ventanas paso a paso ---------- */
+let F=null;
+function sheet(html){const w=$('#sheet');w.innerHTML='<div class="sheet" role="dialog" aria-modal="true">'+html+'</div>';w.hidden=false;w.firstChild.scrollTop=0;const f=w.querySelector('[data-focus]');if(f)setTimeout(()=>{try{f.focus()}catch(e){}},260)}
+function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML='';F=null}
+function shead(q,ctx){return`<div class="shead">${F&&F.hist&&F.hist.length?`<button class="btn sm" data-a="back">${I.back} Regresar</button>`:'<span></span>'}<button class="btn sm" data-a="close">${I.x} Cancelar</button></div><h2 class="q">${q}</h2>${ctx?'<div class="ctx">'+ctx+'</div>':''}`}
+function startFlow(name,init){F=Object.assign({flow:name,hist:[],step:'start'},init||{});FLOWS[name].start()}
+function go(step){F.hist.push(F.step);F.step=step;FLOWS[F.flow][step]()}
+function back(){if(!F||!F.hist.length)return closeSheet();F.step=F.hist.pop();FLOWS[F.flow][F.step]()}
+function val(id){const e=document.getElementById(id);return e?e.value.trim():''}
+function showErr(msg){const e=$('#ferr');if(e){e.textContent=msg;e.hidden=false}}
+function mesOptions(sel,from,to){let h='';for(let i=from;i<=to;i++){const m=addMonths(curMonth(),i);h+=`<option value="${m}"${m===sel?' selected':''}>${mesLargo(m)}</option>`}if(sel&&!h.includes('"'+sel+'"'))h=`<option value="${sel}" selected>${mesLargo(sel)}</option>`+h;return h}
+function diaOptions(sel){let h='';for(let d=1;d<=31;d++)h+=`<option value="${d}"${d==sel?' selected':''}>${d}</option>`;return h}
+function moneyInp(v){return`<div class="money"><span>$</span><input id="fmonto" inputmode="decimal" autocomplete="off" value="${v===''||v==null?'':esc(v)}" placeholder="0" aria-label="Monto" data-focus></div>`}
+function servBadge(s){return`<span class="chip ${s==='luz'?'warn':'info'}" style="${s==='gas'?'background:var(--lav-l);color:var(--lav)':s==='agua'?'background:var(--cielo-l);color:var(--cielo)':''}">${I[SERV[s].i]} ${SERV[s].n}</span>`}
+
+const FLOWS={};
+/* Gasto */
+FLOWS.gasto={
+  start(){F.step=F.s?'prop':'serv';this[F.step]()},
+  serv(){sheet(shead('¿Qué recibo vas a anotar?')+'<div class="opts">'+Object.keys(SERV).map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
+  prop(){
+    const M=F.mes||curMonth();const ps=propsOrd().filter(p=>hasServ(p,F.s));
+    if(!ps.length){sheet(shead('No hay propiedades con '+SERV[F.s].n)+'<p class="muted">Agrega una propiedad o activa este servicio en sus datos.</p>');return}
+    const g=pid=>list('gastos').find(x=>x.propiedadId===pid&&x.servicio===F.s&&x.mes===M);
+    ps.sort((a,b)=>(g(a.id)?1:0)-(g(b.id)?1:0));
+    sheet(shead('¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+'<div class="opts">'+ps.map(p=>{const x=g(p.id);return`<button class="opt" data-a="g-prop" data-id="${p.id}"><span class="ic ${x?'done':'s-'+F.s}">${x?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+' · tocar para corregir':'Falta anotar'}</span></span></button>`}).join('')+'</div>');
+  },
+  monto(){
+    const M=F.mes||curMonth(),p=prop(F.pid);
+    const ex=list('gastos').find(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===M);
+    F.exId=ex?ex.id:null;
+    const prev=list('gastos').filter(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes<M).sort((a,b)=>a.mes<b.mes?-1:1).slice(-6).map(x=>+x.monto);
+    const hint=prev.length>=2?`Lo normal aquí: <b>${money(median(prev))}</b> (según tus últimos ${prev.length} recibos)`:prev.length===1?`El recibo anterior fue de <b>${money(prev[0])}</b>`:'Es el primer recibo de este servicio aquí.';
+    sheet(shead('¿Cuánto fue?',servBadge(F.s)+`<span class="chip off">${esc(p.nombre)}</span>`)+moneyInp(ex?ex.monto:'')+`<p class="hint">${hint}</p><div class="err" id="ferr" hidden></div>
+      <details class="more"${F.mes&&F.mes!==curMonth()?' open':''}><summary class="btn sm">${I.edit} Cambiar mes o nota</summary>
+      <label class="f" for="fmes">Mes del recibo</label><select class="inp" id="fmes">${mesOptions(M,-12,1)}</select>
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(ex?ex.nota:'')}"></details>
+      <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar</button>`);
+  }
+};
+/* Pago */
+FLOWS.pago={
+  start(){F.step=F.tid?'monto':'quien';this[F.step]()},
+  quien(){
+    const ts=activos().map(t=>({t,st:estadoRenta(t)})).sort((a,b)=>(a.st?a.st.dias:999)-(b.st?b.st.dias:999));
+    if(!ts.length){sheet(shead('Aún no hay inquilinos')+'<p class="muted">Registra un inquilino primero.</p>');return}
+    sheet(shead('¿Quién pagó?')+'<div class="opts">'+ts.map(({t,st})=>`<button class="opt" data-a="p-quien" data-id="${t.id}"><span class="ic s-pago">${I.cash}</span><span class="it">${esc(t.nombre)}<span>${esc(prop(t.propiedadId).nombre)} · ${money(t.renta)}</span></span>${chipRenta(st)}</button>`).join('')+'</div>');
+  },
+  monto(){
+    const t=get('inquilinos',F.tid),st=estadoRenta(t);const mes=F.mesSel||(st?st.mes:curMonth());
+    sheet(shead('¿Cuánto pagó?',`<span class="chip info">${esc(t.nombre)}</span><span class="chip off">${esc(prop(t.propiedadId).nombre)}</span>`)+moneyInp(t.renta)+`<p class="hint">Renta de <b>${mesLargo(mes)}</b> · pagada hoy</p><div class="err" id="ferr" hidden></div>
+      <details class="more"><summary class="btn sm">${I.edit} Cambiar mes, fecha o nota</summary>
+      <label class="f" for="fmes">¿Qué mes está pagando?</label><select class="inp" id="fmes">${mesOptions(mes,-6,3)}</select>
+      <label class="f" for="ffecha">Fecha en que pagó</label><input class="inp" type="date" id="ffecha" value="${today()}">
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" placeholder="Ej. transferencia, pagó en efectivo"></details>
+      <div class="sep"></div><button class="btn pri big full" data-a="p-save">${I.check} Guardar pago</button>`);
+  }
+};
+/* Alta de inquilino */
+FLOWS.alta={
+  start(){F.step=F.pid?'datos':'prop';this[F.step]()},
+  prop(){
+    const ps=propsOrd();
+    if(!ps.length){sheet(shead('Primero agrega una propiedad')+`<button class="btn pri big full" data-a="newprop">${I.plus} Agregar propiedad</button>`);return}
+    sheet(shead('¿En qué propiedad va a vivir?')+'<div class="opts">'+ps.map(p=>{const t=inqDe(p.id);return`<button class="opt" data-a="a-prop" data-id="${p.id}"><span class="ic s-inq">${I.home}</span><span class="it">${esc(p.nombre)}<span>${t?'Hoy la renta '+esc(t.nombre):'Desocupada'}</span></span>${t?'<span class="chip warn">Ocupada</span>':'<span class="chip ok">Libre</span>'}</button>`}).join('')+'</div>');
+  },
+  datos(){
+    const p=prop(F.pid),d=F.d||{};
+    const ini=d.fechaInicio||today();F.dur=F.dur||'12';
+    const fin=d.fechaFin||(F.dur!=='otra'?addMesesFecha(ini,Number(F.dur)):'');
+    sheet(shead('Datos del inquilino',`<span class="chip off">${esc(p.nombre)}</span>`)+`
+      <label class="f" for="fnom">Nombre completo</label><input class="inp" id="fnom" maxlength="80" autocomplete="off" value="${esc(d.nombre||'')}" data-focus>
+      <label class="f" for="ftel">WhatsApp (10 dígitos)</label><input class="inp" id="ftel" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${esc(d.telefono||'')}">
+      <div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(d.renta!=null?d.renta:(p.renta||''))}"></div>
+      <div><label class="f" for="fdia">Paga cada día</label><select class="inp" id="fdia">${diaOptions(d.diaPago||p.diaPago||Number(today().slice(8)))}</select></div></div>
+      <div class="box" style="margin-top:16px"><h3>Contrato</h3>
+        <label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(ini)}">
+        <label class="f">¿Cuánto dura?</label><div class="seg">${[['6','6 meses'],['12','1 año'],['24','2 años'],['otra','Otra fecha']].map(([n,t])=>`<button class="btn sm${F.dur===n?' on':''}" data-a="a-dur" data-n="${n}">${t}</button>`).join('')}</div>
+        <label class="f" for="ffin">Termina el</label><input class="inp" type="date" id="ffin" value="${esc(fin)}">
+      </div>
+      <div class="err" id="ferr" hidden></div>
+      <details class="more"><summary class="btn sm">${I.edit} Agregar una nota</summary>
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="300" value="${esc(d.notas||'')}"></details>
+      <div class="sep"></div><button class="btn pri big full" data-a="a-next">Continuar</button>`);
+  },
+  conf(){
+    const p=prop(F.pid),old=inqDe(F.pid),d=F.d;
+    sheet(shead('¿Registramos a '+esc(firstName(d.nombre))+'?')+`<div class="box"><h3>${esc(d.nombre)}</h3><div class="muted">${esc(p.nombre)} · ${money(d.renta)} al mes · paga el día ${d.diaPago}</div><div class="muted">Contrato: del ${fechaCompleta(d.fechaInicio)} al ${fechaCompleta(d.fechaFin)}</div></div>
+      ${old?`<div class="box" style="border-color:var(--oro-b);background:var(--oro-l)"><h3>${I.alert} ${esc(old.nombre)} se dará de baja</h3><div>Hoy aparece como inquilino de ${esc(p.nombre)}. Quedará en el historial con salida el ${fechaLarga(d.fechaInicio)}.</div></div>`:''}
+      <button class="btn pri big full" data-a="a-save">${I.check} Sí, registrar</button>`);
+  }
+};
+/* Baja */
+FLOWS.baja={
+  start(){F.step=F.tid?'conf':'quien';this[F.step]()},
+  quien(){
+    const ts=activos();
+    if(!ts.length){sheet(shead('No hay inquilinos activos'));return}
+    sheet(shead('¿Quién deja de rentar?')+'<div class="opts">'+ts.map(t=>`<button class="opt" data-a="b-quien" data-id="${t.id}"><span class="ic s-inq">${I.userMinus}</span><span class="it">${esc(t.nombre)}<span>${esc(prop(t.propiedadId).nombre)}</span></span></button>`).join('')+'</div>');
+  },
+  conf(){
+    const t=get('inquilinos',F.tid);
+    sheet(shead('¿'+esc(firstName(t.nombre))+' deja '+esc(prop(t.propiedadId).nombre)+'?')+`<p class="muted">La propiedad quedará como desocupada. Sus pagos y datos se quedan en el historial.</p>
+      <details class="more"><summary class="btn sm">${I.edit} Cambiar fecha de salida</summary><label class="f" for="ffecha">Fecha de salida</label><input class="inp" type="date" id="ffecha" value="${today()}"></details>
+      <div class="sep"></div><button class="btn danger big full" data-a="b-save">${I.userMinus} Sí, dar de baja</button>`);
+  }
+};
+/* Propiedad nueva, edificio con departamentos, o edición */
+function predialInputs(r){return`<div class="box" style="margin-top:16px"><h3>Predial</h3><label class="f" for="fpre">Monto al año</label><div class="money" style="padding:0 14px"><span style="font-size:26px">$</span><input id="fpre" inputmode="decimal" style="font-size:26px" autocomplete="off" value="${esc(r.predialMonto||'')}" placeholder="0"></div><label class="f" for="fpref">Fecha límite de pago</label><input class="inp" type="date" id="fpref" value="${esc(r.predialFecha||'')}"><label class="f" for="fpreclave">Clave catastral (opcional)</label><input class="inp" id="fpreclave" maxlength="30" value="${esc(r.predialClave||'')}"><p class="hint">Te recuerdo 30 días antes. Si aún no lo sabes, déjalo vacío.</p></div>`}
+function leerPredial(){const m=val('fpre'),f=val('fpref');const n=m?num(m):0;if(m&&!(n>=0))return{err:'El monto del predial no es válido.'};if(n>0&&!f)return{err:'Pon también la fecha límite del predial.'};return{predialMonto:m?Math.round(n*100)/100:'',predialFecha:f||'',predialClave:val('fpreclave')}}
+function parseInts(t){const a=[...new Set(String(t).split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean))];return a}
+FLOWS.prop={
+  start(){
+    if(F.id){const p=get('propiedades',F.id);F.tipo=p.tipo;F.serv=String(p.servicios).split(',').filter(Boolean);F.step='form';this.form();return}
+    F.tipo='Departamento';F.serv=['luz','agua','gas'];
+    if(F.predioId){F.step='form';this.form();return}
+    F.step='tipo';this.tipo();
+  },
+  tipo(){sheet(shead('¿Qué vas a agregar?')+`<div class="opts"><button class="opt" data-a="pr-modo" data-m="solo"><span class="ic s-inq">${I.home}</span><span class="it">Una casa o un departamento<span>Con su propio recibo y su propia puerta</span></span></button><button class="opt" data-a="pr-modo" data-m="edif"><span class="ic s-inq">${I.key}</span><span class="it">Un edificio con varios departamentos<span>Los registras con su número interior</span></span></button></div>`)},
+  form(){
+    const p=F.id?get('propiedades',F.id):{};
+    const pid=F.predioId||p.predioId||'';const d=pid?get('predios',pid):null;
+    const compartido=d&&(d.predialMonto||d.predialFecha);
+    let h=shead(F.id?'Datos de la propiedad':(pid?'Nuevo departamento':'Nueva propiedad'),d?`<span class="chip off">${esc(d.nombre)}</span>`:'');
+    if(pid){h+=`<label class="f" for="fint">Número o nombre interior</label><input class="inp" id="fint" maxlength="20" placeholder="Ej. 4 o 101" value="${esc(p.interior||'')}" data-focus>`;
+      if(F.id)h+=`<label class="f" for="fnom">Nombre en la lista</label><input class="inp" id="fnom" maxlength="60" value="${esc(p.nombre||'')}">`}
+    else h+=`<label class="f" for="fnom">¿Cómo le dices?</label><input class="inp" id="fnom" maxlength="60" placeholder="Ej. Casa Jardines" value="${esc(p.nombre||'')}" data-focus>`;
+    h+=`<label class="f">Tipo</label><div class="seg">${TIPOS.slice(0,3).map(t=>`<button class="btn sm${F.tipo===t?' on':''}" data-a="pr-tipo" data-t="${t}">${t}</button>`).join('')}</div>
+      <div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(p.renta||'')}"></div>
+      <div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(p.diaPago||1)}</select></div></div>
+      <label class="f">¿Qué servicios pagas tú?</label><div class="seg">${Object.keys(SERV).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div>`;
+    if(isOwner())h+=compartido?`<p class="hint">El predial de este edificio se maneja desde el edificio.</p>`:predialInputs(p);
+    h+=`<div class="err" id="ferr" hidden></div>
+      <details class="more"><summary class="btn sm">${I.edit} Dirección o nota</summary>
+      <label class="f" for="fdir">Dirección (opcional)</label><input class="inp" id="fdir" maxlength="120" value="${esc(p.direccion||'')}">
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="300" value="${esc(p.notas||'')}"></details>
+      <div class="sep"></div><button class="btn pri big full" data-a="pr-save">${I.check} Guardar</button>`;
+    sheet(h);
+  },
+  edif1(){const e=F.e||{};sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" placeholder="Ej. Edificio Madero" value="${esc(e.nombre||'')}" data-focus><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(e.direccion||'')}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-1">Continuar</button>`)},
+  edif2(){sheet(shead('¿Cuáles son los departamentos?',`<span class="chip off">${esc(F.e.nombre)}</span>`)+`<p class="muted">Escribe el número o nombre de cada uno, separados por coma o en renglones.</p><textarea class="inp" id="fints" placeholder="1, 2, 3, 4" data-focus>${esc(F.ints||'')}</textarea><p class="hint">Ejemplos: 1, 2, 3 · 101, 102, 201 · A, B, C</p><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-2">Continuar</button>`)},
+  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">¿Qué servicios pagas tú?</label><div class="seg">${Object.keys(SERV).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
+  edif4(){sheet(shead('¿Cómo se paga el predial?')+`<div class="opts"><button class="opt" data-a="pr-pmodo" data-m="edificio"><span class="ic s-inq">${I.home}</span><span class="it">Uno solo por todo el edificio<span>Un solo pago al año</span></span></button><button class="opt" data-a="pr-pmodo" data-m="unidad"><span class="ic s-inq">${I.key}</span><span class="it">Uno por cada departamento<span>Cada uno tiene su cuenta</span></span></button><button class="opt" data-a="pr-pmodo" data-m="no"><span class="ic s-inq">${I.clock}</span><span class="it">Todavía no lo sé<span>Lo agrego después</span></span></button></div>`)},
+  pred(){sheet(shead(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada departamento')+(F.pmodo==='unidad'?'<p class="muted">Pongo el mismo monto y fecha a todos. Después puedes ajustar cada uno.</p>':'')+predialInputs(F.pr||{})+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-pred">Continuar</button>`)},
+  conf(){const e=F.e,pr=F.pr||{};const pt=F.pmodo==='no'||!pr.predialFecha&&!pr.predialMonto?'Sin predial por ahora':(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada uno')+': '+(pr.predialMonto?money(pr.predialMonto)+' al año':'')+(pr.predialFecha?' · vence el '+fechaCompleta(pr.predialFecha):'');
+    sheet(shead('¿Creamos '+esc(e.nombre)+'?')+`<div class="box"><h3>${F.list.length} departamento${F.list.length>1?'s':''}</h3><div class="ps">${F.list.map(x=>`<span class="chip info">${esc(x)}</span>`).join('')}</div><div class="sep" style="height:10px"></div><div class="muted">${e.renta?money(e.renta)+' al mes · ':''}paga el día ${e.diaPago}</div><div class="muted">${esc(pt)}</div></div><button class="btn pri big full" data-a="ed-save">${I.check} Sí, crear</button>`)}
+};
+FLOWS.predio={
+  start(){F.step='form';this.form()},
+  form(){const d=get('predios',F.id);sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" value="${esc(d.nombre)}"><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(d.direccion)}">`+predialInputs(d)+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="pd-save">${I.check} Guardar</button>`)}
+};
+FLOWS.renov={
+  start(){F.step='dur';this.dur()},
+  dur(){const t=get('inquilinos',F.tid);sheet(shead('¿Por cuánto tiempo se renueva?',`<span class="chip info">${esc(t.nombre)}</span><span class="chip off">${t.fechaFin?'Termina el '+fechaCompleta(t.fechaFin):'Sin fecha de fin'}</span>`)+'<div class="opts">'+[['6','6 meses'],['12','1 año'],['24','2 años']].map(([n,tx])=>`<button class="opt" data-a="rn-dur" data-n="${n}"><span class="ic s-inq">${I.refresh}</span><span class="it">${tx}</span></button>`).join('')+`<button class="opt" data-a="rn-otra"><span class="ic s-inq">${I.edit}</span><span class="it">Otra fecha</span></button></div>`)},
+  otra(){sheet(shead('¿Hasta cuándo?')+`<label class="f" for="ffin">Nueva fecha de fin</label><input class="inp" type="date" id="ffin" data-focus><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="rn-ok">${I.check} Guardar</button>`)}
+};
+/* Comentario sobre un cambio */
+FLOWS.coment={
+  start(){F.step='form';this.form()},
+  form(){
+    const ex=list('comentarios').find(c=>c.clave===F.clave);
+    sheet(shead('¿Qué pasó aquí?',F.ctx)+`<textarea class="inp" id="ftxt" maxlength="500" placeholder="Ej. Subió porque instalaron un minisplit" data-focus>${esc(ex?ex.texto:'')}</textarea>
+      <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="c-save">${I.check} Guardar comentario</button>`);
+  }
+};
+/* Corregir o borrar un registro */
+FLOWS.edit={
+  start(){F.step='form';this.form()},
+  form(){
+    const r=get(F.c,F.id);if(!r)return closeSheet();
+    let h='';
+    if(F.c==='gastos'){h=`<div class="ctx">${servBadge(r.servicio)}<span class="chip off">${esc((prop(r.propiedadId)||{}).nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,1)}</select><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
+    else if(F.c==='pagos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes que paga</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,3)}</select><label class="f" for="ffecha">Fecha</label><input class="inp" type="date" id="ffecha" value="${esc(r.fecha)}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
+    else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
+    else if(F.c==='avisos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="box"><h3>Aviso a ${esc(t.nombre||'')}</h3><div class="muted">${ETAPA_TXT[r.etapa]} · ${mesLargo(r.mes)} · enviado el ${fechaLarga(r.fecha)}</div></div>`}
+    const editable=F.c!=='avisos';
+    sheet(shead('Corregir registro')+h+'<div class="err" id="ferr" hidden></div><div class="sep"></div>'+(editable?`<button class="btn pri big full" data-a="e-save">${I.check} Guardar cambios</button><div class="sep"></div>`:'')+(isOwner()?`<button class="btn full" data-a="e-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
+  },
+  del(){sheet(shead('¿Borrar este registro?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="e-delok">'+I.trash+' Sí, borrar</button>')}
+};
+/* Borrar propiedad */
+FLOWS.delprop={start(){F.step='c';this.c()},c(){const p=prop(F.id);sheet(shead('¿Borrar '+esc(p.nombre)+'?')+'<p class="muted">Desaparece de la lista. Sus gastos y pagos siguen en la hoja como historial.</p><button class="btn danger big full" data-a="dp-ok">'+I.trash+' Sí, borrar</button>')}};
+
+/* ---------- Acciones ---------- */
+function parseMonto(){const n=num(val('fmonto'));if(!(n>0)||n>10000000){showErr('Escribe una cantidad válida.');return null}return Math.round(n*100)/100}
+function abrirWA(t,etapa,registrar){
+  const tel=telWa(t.telefono);
+  if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Historial o Propiedades.',null,true);return}
+  const st=estadoRenta(t);
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(mensaje(t,st,etapa)),'_blank','noopener');
+  if(registrar&&st&&etapa)commit([{c:'avisos',r:{id:uid(),inquilinoId:t.id,mes:st.mes,etapa,fecha:today()}}],'Aviso anotado como enviado');
+}
+const ACT={
+  close:closeSheet,back,
+  undo(){const u=window._undo;window._undo=null;$('#toastBox').innerHTML='';if(u)u()},
+  tab(d){TAB=d.t;render();$('#main').scrollTop=0},
+  ajustes(){F={flow:'aj',hist:[]};ajustes()},
+  gasto(d){startFlow('gasto',d.s?{s:d.s}:{})},
+  pago(d){startFlow('pago',d.id?{tid:d.id}:{})},
+  alta(d){startFlow('alta',d.id?{pid:d.id}:{})},
+  baja(d){startFlow('baja',d.id?{tid:d.id}:{})},
+  newprop(){startFlow('prop',{})},
+  editprop(d){startFlow('prop',{id:d.id})},
+  delprop(d){if(inqDe(d.id)){toast('Primero da de baja al inquilino',null,true);return}startFlow('delprop',{id:d.id})},
+  'dp-ok'(){const p=prop(F.id);closeSheet();commit([{c:'propiedades',r:Object.assign({},p,{eliminado:1})}],'Propiedad borrada')},
+  'g-serv'(d){F.s=d.s;go('prop')},
+  'g-prop'(d){F.pid=d.id;go('monto')},
+  'g-save'(){const m=parseMonto();if(m==null)return;const mes=val('fmes')||curMonth();
+    const ex=list('gastos').find(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===mes);
+    const r=ex?Object.assign({},ex,{monto:m,nota:val('fnota')}):{id:uid(),propiedadId:F.pid,servicio:F.s,mes,monto:m,nota:val('fnota')};
+    closeSheet();commit([{c:'gastos',r}],'Listo, quedó guardado')},
+  'p-quien'(d){F.tid=d.id;go('monto')},
+  'p-save'(){const m=parseMonto();if(m==null)return;const t=get('inquilinos',F.tid);const st=estadoRenta(t);
+    const r={id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,mes:val('fmes')||(st?st.mes:curMonth()),fecha:val('ffecha')||today(),monto:m,nota:val('fnota')};
+    closeSheet();commit([{c:'pagos',r}],'Pago de '+firstName(t.nombre)+' guardado')},
+  'a-prop'(d){F.pid=d.id;go('datos')},
+  'a-dur'(d,b){F.dur=d.n;document.querySelectorAll('[data-a="a-dur"]').forEach(x=>x.classList.toggle('on',x===b));const e=document.getElementById('ffin');if(!e)return;if(d.n!=='otra')e.value=addMesesFecha(val('fini')||today(),Number(d.n));else e.focus()},
+  'a-next'(){const nombre=val('fnom'),tel=val('ftel').replace(/\D/g,''),renta=num(val('fren'));
+    if(nombre.length<2)return showErr('Escribe el nombre del inquilino.');
+    if(tel&&!telWa(tel))return showErr('El WhatsApp debe tener 10 dígitos.');
+    if(!(renta>0))return showErr('Escribe la renta mensual.');
+    const ini=val('fini')||today(),fin=val('ffin');
+    if(!fin)return showErr('Pon la fecha en que termina el contrato.');
+    if(fin<=ini)return showErr('El contrato debe terminar después de su fecha de inicio.');
+    F.d={nombre,telefono:tel.length===10?tel:tel.slice(-10),renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:fin,notas:val('fnota')};go('conf')},
+  'a-save'(){const d=F.d,old=inqDe(F.pid),ops=[];
+    if(old)ops.push({c:'inquilinos',r:Object.assign({},old,{estado:'baja',fechaBaja:d.fechaInicio})});
+    ops.push({c:'inquilinos',r:Object.assign({id:uid(),propiedadId:F.pid,estado:'activo',fechaBaja:''},d)});
+    closeSheet();commit(ops,firstName(d.nombre)+' quedó registrado')},
+  renov(d){startFlow('renov',{tid:d.id})},
+  'rn-dur'(d){const t=get('inquilinos',F.tid);const hoy=today();const base=t.fechaFin&&t.fechaFin>hoy?t.fechaFin:hoy;const fin=addMesesFecha(base,Number(d.n));closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:fin})}],'Contrato renovado hasta el '+fechaLarga(fin))},
+  'rn-otra'(){go('otra')},
+  'rn-ok'(){const f=val('ffin');if(!f)return showErr('Elige la fecha.');if(f<=today())return showErr('La fecha debe ser futura.');const t=get('inquilinos',F.tid);closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:f})}],'Contrato renovado hasta el '+fechaLarga(f))},
+  'pred-pag'(d){const r=get(d.c,d.id);if(!r)return;const nueva=addYear(r.predialFecha);closeSheet();commit([{c:d.c,r:Object.assign({},r,{predialFecha:nueva,predialPagado:today()})}],'Predial anotado. Próximo vencimiento: '+fechaCompleta(nueva))},
+  editpredio(d){startFlow('predio',{id:d.id})},
+  addunit(d){startFlow('prop',{predioId:d.id})},
+  'pd-save'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');const x=leerPredial();if(x.err)return showErr(x.err);const r=Object.assign({},get('predios',F.id),{nombre,direccion:val('fedir')},x);closeSheet();commit([{c:'predios',r}],'Edificio guardado')},
+  'pr-modo'(d){F.modo=d.m;go(d.m==='solo'?'form':'edif1')},
+  'ed-1'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');F.e=Object.assign(F.e||{},{nombre,direccion:val('fedir')});go('edif2')},
+  'ed-2'(){const a=parseInts(val('fints'));if(!a.length)return showErr('Escribe al menos un departamento.');if(a.length>60)return showErr('Son demasiados; máximo 60 por edificio.');if(a.some(x=>x.length>20))return showErr('Cada nombre debe tener 20 letras o menos.');F.ints=val('fints');F.list=a;go('edif3')},
+  'ed-3'(){const r=num(val('fren')||'0');if(!(r>=0))return showErr('La renta no es válida.');F.e=Object.assign(F.e,{renta:Math.round(r*100)/100,diaPago:Number(val('fdia'))});go('edif4')},
+  'pr-pmodo'(d){F.pmodo=d.m;if(d.m==='no')F.pr={};go(d.m==='no'?'conf':'pred')},
+  'ed-pred'(){const x=leerPredial();if(x.err)return showErr(x.err);F.pr=x;go('conf')},
+  'ed-save'(){const e=F.e,pr=F.pr||{},ops=[],did=uid();
+    const dp=F.pmodo==='edificio'?pr:{},up=F.pmodo==='unidad'?pr:{};
+    ops.push({c:'predios',r:{id:did,nombre:e.nombre,direccion:e.direccion||'',predialMonto:dp.predialMonto||'',predialFecha:dp.predialFecha||'',predialClave:dp.predialClave||'',predialPagado:'',notas:''}});
+    const sv=Object.keys(SERV).filter(s=>F.serv.includes(s)).join(',');
+    for(const it of F.list)ops.push({c:'propiedades',r:{id:uid(),nombre:e.nombre+' · '+it,tipo:'Departamento',direccion:'',renta:e.renta||0,diaPago:e.diaPago,servicios:sv,notas:'',predioId:did,interior:it,predialMonto:up.predialMonto||'',predialFecha:up.predialFecha||'',predialClave:up.predialClave||'',predialPagado:''}});
+    const n=F.list.length;closeSheet();commit(ops,'Edificio guardado con '+n+' departamento'+(n>1?'s':''))},
+  'b-quien'(d){F.tid=d.id;go('conf')},
+  'b-save'(){const t=get('inquilinos',F.tid);const f=val('ffecha')||today();closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{estado:'baja',fechaBaja:f})}],firstName(t.nombre)+' quedó dado de baja')},
+  'pr-tipo'(d){F.tipo=d.t;document.querySelectorAll('[data-a="pr-tipo"]').forEach(b=>b.classList.toggle('on',b.dataset.t===d.t))},
+  'pr-serv'(d,b){const i=F.serv.indexOf(d.s);if(i>=0)F.serv.splice(i,1);else F.serv.push(d.s);b.classList.toggle('on',i<0)},
+  'pr-save'(){
+    const base=F.id?get('propiedades',F.id):{id:uid()};
+    const pid=F.predioId||base.predioId||'';let nombre=val('fnom');const inter=val('fint');
+    if(pid){if(!inter)return showErr('Escribe el número o nombre interior.');if(!F.id)nombre=get('predios',pid).nombre+' · '+inter;else if(nombre.length<2)return showErr('Ponle un nombre.')}
+    else if(nombre.length<2)return showErr('Ponle un nombre a la propiedad.');
+    const renta=num(val('fren')||'0');if(!(renta>=0))return showErr('La renta no es válida.');
+    let pr={predialMonto:base.predialMonto||'',predialFecha:base.predialFecha||'',predialClave:base.predialClave||'',predialPagado:base.predialPagado||''};
+    if(isOwner()&&document.getElementById('fpre')){const x=leerPredial();if(x.err)return showErr(x.err);pr=Object.assign(pr,x)}
+    const r=Object.assign({},base,{nombre,tipo:F.tipo,renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),servicios:Object.keys(SERV).filter(s=>F.serv.includes(s)).join(','),direccion:val('fdir'),notas:val('fnota'),predioId:pid,interior:inter||base.interior||''},pr);
+    closeSheet();commit([{c:'propiedades',r}],'Propiedad guardada')},
+  pdet(d){F={flow:'pdet',hist:[]};pdet(d.id)},
+  wa(d){const t=get('inquilinos',d.id);if(t)abrirWA(t,d.e||null,!!d.e)},
+  coment(d){startFlow('coment',{clave:d.k,ctx:`<span class="chip off">${esc(d.t)}</span>`})},
+  'c-save'(){const txt=val('ftxt');if(!txt)return showErr('Escribe un comentario.');const ex=list('comentarios').find(c=>c.clave===F.clave);
+    const r=ex?Object.assign({},ex,{texto:txt,fecha:today()}):{id:uid(),clave:F.clave,texto:txt,fecha:today()};closeSheet();commit([{c:'comentarios',r}],'Comentario guardado')},
+  edit(d){const r=get(d.c,d.id);if(!r)return;if(!canEdit(d.c,r)){toast('Solo el propietario puede corregir esto',null,true);return}startFlow('edit',{c:d.c,id:d.id})},
+  'e-save'(){const r=Object.assign({},get(F.c,F.id));
+    if(F.c==='gastos'||F.c==='pagos'){const m=parseMonto();if(m==null)return;r.monto=m;r.mes=val('fmes');r.nota=val('fnota');if(F.c==='pagos')r.fecha=val('ffecha')||r.fecha;
+      if(F.c==='gastos'){const dup=list('gastos').find(x=>x.id!==r.id&&x.propiedadId===r.propiedadId&&x.servicio===r.servicio&&x.mes===r.mes);if(dup)return showErr('Ya hay un recibo de ese mes. Corrige ese en su lugar.')}}
+    else if(F.c==='inquilinos'){const tel=val('ftel').replace(/\D/g,'');if(val('fnom').length<2)return showErr('Escribe el nombre.');if(tel&&!telWa(tel))return showErr('El WhatsApp debe tener 10 dígitos.');const rn=num(val('fren'));if(!(rn>0))return showErr('Renta no válida.');
+      Object.assign(r,{nombre:val('fnom'),telefono:tel.slice(-10),renta:rn,diaPago:Number(val('fdia')),fechaFin:val('ffin')||r.fechaFin||'',notas:val('fnota')})}
+    closeSheet();commit([{c:F.c,r}],'Cambios guardados')},
+  'e-del'(){go('del')},
+  'e-delok'(){const r=get(F.c,F.id);const c=F.c;closeSheet();commit([{c,r:Object.assign({},r,{eliminado:1})}],'Registro borrado')},
+  filt(d){HF=d.f;HLIM=60;render()},
+  hmore(){HLIM+=60;render()},
+  mprev(){RMES=addMonths(RMES,-1);render()},
+  mnext(){if(RMES<curMonth())RMES=addMonths(RMES,1);render()},
+  sync(){sync(true)},
+  'aj-name'(){const n=val('fname');if(n.length<2)return showErr('Escribe tu nombre.');S.deviceName=n.slice(0,40);save();render();if(S.conn)sync();toast('Nombre guardado');ajustes()},
+  'aj-manual'(){const u=val('furl'),k=val('fkey'),n=val('fname2')||S.deviceName;
+    if(!okUrl(u))return showErr('La dirección debe verse así: https://script.google.com/macros/s/…/exec');
+    if(k.length<16)return showErr('La clave tiene al menos 16 caracteres.');
+    if(!n||n.length<2)return showErr('Escribe tu nombre.');
+    conectar(u,k,n)},
+  'aj-link'(){compartirEnlace()},
+  'aj-off'(){F={flow:'aj',hist:['x']};sheet(shead('¿Desconectar este teléfono?')+'<p class="muted">Se borran los datos guardados en este teléfono. En la hoja de Google no se borra nada.</p><button class="btn danger big full" data-a="aj-offok">Sí, desconectar</button>')},
+  'aj-offok'(){const dev=S.device;S=blank();S.device=dev;save();closeSheet();render();toast('Teléfono desconectado')},
+  'aj-plant'(){F={flow:'aj',hist:['x']};plantillas()},
+  'pl-save'(){const c=cfg();const pl={};for(const k of Object.keys(DEF_PLANT)){const v=val('pl_'+k);pl[k]=v||DEF_PLANT[k]}
+    S.config=Object.assign({},c,{propietario:val('pl_prop').slice(0,60),negocio:val('pl_neg').slice(0,80),plantillas:pl,updatedAt:Date.now()});S.configDirty++;save();closeSheet();render();schedule(1000);toast('Mensajes guardados')},
+  'aj-csv'(d){exportCSV(d.c)},
+  'link-ok'(){const n=val('fname');if(n.length<2)return showErr('Escribe tu nombre.');const L=window._link;window._link=null;conectar(L.u,L.k,n)}
+};
+// Regreso desde ajustes hacia ajustes
+const _back=back;
+function conectar(u,k,n){S.conn={u,k};S.deviceName=n.slice(0,40);S.status='none';S.err=null;save();closeSheet();render();toast('Conectando…');sync(true)}
+
+/* ---------- Vistas ---------- */
+let TAB='inicio',HF='todo',HLIM=60,RMES=addMonths(curMonth(),0);
+function renderStatus(){
+  const el=$('#status');if(!el)return;
+  let cls='',txt='',btn='';
+  if(DEMO){cls='warn';txt='Demostración: los cambios no se guardan'}
+  else if(!S.conn){cls='off';txt='Este teléfono aún no está conectado';btn=`<button class="btn sm" data-a="ajustes">Conectar</button>`}
+  else if(syncing){cls='warn';txt='Guardando…'}
+  else if(S.status==='pending'){cls='warn';txt='Esperando que el propietario apruebe este teléfono';btn=`<button class="btn sm" data-a="sync">${I.refresh} Revisar</button>`}
+  else if(S.status==='error'){cls='bad';txt={clave:'La clave no es correcta',bloqueado:'Demasiados intentos. Espera 15 minutos',sinclave:'La hoja aún no tiene clave',muchos:'Hay demasiados teléfonos esperando aprobación'}[S.err]||'Algo falló al guardar';btn=`<button class="btn sm" data-a="sync">${I.refresh} Revisar</button>`}
+  else if(S.status==='offline'){cls='bad';txt=S.pend.length?'Sin internet. Se guarda cuando regrese':'Sin internet';btn=`<button class="btn sm" data-a="sync">${I.refresh} Revisar</button>`}
+  else if(S.pend.length){cls='warn';txt='Guardando…'}
+  else if(S.lastSync&&S.status==='ok'){txt='Todo guardado'}
+  else{cls='warn';txt='Conectando…'}
+  el.innerHTML=`<span class="dot ${cls}"></span><span>${txt}</span>${btn}`;
+}
+function renderHeader(){
+  const h=Number(fmtHr.format(new Date()))%24;
+  const sal=h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches';
+  $('#hello').textContent=sal+(S.deviceName?', '+firstName(S.deviceName):'');
+  const d=new Date();const f=new Intl.DateTimeFormat('es-MX',{timeZone:TZ,weekday:'long',day:'numeric',month:'long'}).format(d);
+  $('#clock').textContent=f.charAt(0).toUpperCase()+f.slice(1);
+}
+function renderNav(){
+  const tabs=[['inicio','Inicio','home'],['props','Propiedades','key'],['hist','Historial','list']];
+  if(isOwner())tabs.push(['resumen','Resumen','chart']);
+  if(TAB==='resumen'&&!isOwner())TAB='inicio';
+  $('#nav').innerHTML=tabs.map(([k,n,i])=>`<button class="${TAB===k?'on':''}" data-a="tab" data-t="${k}" aria-current="${TAB===k?'page':'false'}">${I[i]}<span>${n}</span></button>`).join('');
+}
+function render(){
+  $('#demoBar').hidden=!DEMO;
+  renderHeader();
+  const v=VIEWS[TAB]||VIEWS.inicio;
+  $('#main').innerHTML='<div class="in"><div class="status" id="status"></div>'+v()+'</div>';
+  renderStatus();renderNav();
+}
+
+function tuDia(){
+  const items=[],M=curMonth(),hoy=today();
+  for(const t of activos()){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
+  if(isOwner()){
+    for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60)items.push({k:'contrato',t,dias,done:false})}
+    const addP=(c,r)=>{if(!r.predialFecha)return;const dias=dayDiff(hoy,r.predialFecha);if(dias<=30)items.push({k:'predial',c,r,n:r.nombre,dias,done:false})};
+    list('predios').forEach(r=>addP('predios',r));list('propiedades').forEach(r=>addP('propiedades',r));
+  }
+  const props=list('propiedades'),gs=list('gastos');
+  for(const s of Object.keys(SERV)){const ps=props.filter(p=>hasServ(p,s));if(!ps.length)continue;const n=ps.filter(p=>gs.some(g=>g.propiedadId===p.id&&g.servicio===s&&g.mes===M)).length;items.push({k:'recibo',s,n,total:ps.length,done:n===ps.length})}
+  const dg=x=>x.k==='aviso'?x.st.dias:x.dias!=null?x.dias:500;items.sort((a,b)=>(a.done-b.done)||(dg(a)-dg(b)));
+  return items;
+}
+function itemHtml(x){
+  if(x.k==='predial'){const late=x.dias<0;const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.r.predialFecha)+')';
+    return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.home}</div><div class="it"><b>Predial de ${esc(x.n)}</b><span>${x.r.predialMonto?money(x.r.predialMonto)+' · ':''}${when}</span></div><button class="btn sm" data-a="pred-pag" data-c="${x.c}" data-id="${x.r.id}">${I.check} Ya pagué</button></div>`}
+  if(x.k==='contrato'){const late=x.dias<0;const p=prop(x.t.propiedadId)||{};const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.t.fechaFin)+')';
+    return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.note}</div><div class="it"><b>Contrato de ${esc(firstName(x.t.nombre))}</b><span>${esc(p.nombre||'')} · ${when}</span></div><button class="btn sm" data-a="renov" data-id="${x.t.id}">Renovar</button></div>`}
+  if(x.k==='aviso'){
+    const p=prop(x.t.propiedadId),late=x.st.dias<0;
+    const when=late?`Atrasado ${-x.st.dias} día${x.st.dias===-1?'':'s'}`:x.st.dias===0?'Vence hoy':`Vence en ${x.st.dias} día${x.st.dias===1?'':'s'} (${fechaLarga(x.st.due)})`;
+    if(x.done)return`<div class="item done-t"><div class="ic done">${I.check}</div><div class="it"><b>${esc(firstName(x.t.nombre))} ya tiene su aviso</b><span>${esc(p.nombre)} · ${ETAPA_TXT[x.st.etapa]} · ${when}</span></div><button class="btn sm" data-a="pago" data-id="${x.t.id}">${I.cash} Pagó</button></div>`;
+    return`<div class="item"><div class="ic ${late?'late':'wait'}">${late?I.alert:I.clock}</div><div class="it"><b>Recordar a ${esc(firstName(x.t.nombre))}</b><span>${esc(p.nombre)} · ${when}</span></div><button class="btn sm wa" data-a="wa" data-id="${x.t.id}" data-e="${x.st.etapa}">${I.chat} Avisar</button></div>`;
+  }
+  const mes=MESES[Number(curMonth().slice(5))-1];
+  return`<div class="item${x.done?' done-t':''}"><div class="ic ${x.done?'done':'wait'}">${x.done?I.check:I[SERV[x.s].i]}</div><div class="it"><b>Recibos de ${SERV[x.s].n.toLowerCase()} de ${mes}</b><span>${x.n} de ${x.total} propiedades anotadas</span></div>${x.done?'':`<button class="btn sm" data-a="gasto" data-s="${x.s}">Anotar</button>`}</div>`;
+}
+function feed(){
+  const out=[];
+  for(const g of list('gastos')){const p=prop(g.propiedadId);out.push({c:'gastos',r:g,ic:SERV[g.servicio].i,cls:'s-'+g.servicio,t:SERV[g.servicio].n+' · '+(p?p.nombre:'—'),s:mesLargo(g.mes)+(g.nota?' · '+g.nota:''),amt:money(g.monto),f:'gastos'})}
+  for(const x of list('pagos')){const t=get('inquilinos',x.inquilinoId)||S.data.inquilinos[x.inquilinoId]||{};out.push({c:'pagos',r:x,ic:'cash',cls:'s-pago',t:'Pago de '+(t.nombre||'—'),s:'Renta de '+mesLargo(x.mes)+' · '+fechaLarga(x.fecha),amt:money(x.monto),f:'pagos'})}
+  for(const t of list('inquilinos')){const p=prop(t.propiedadId)||S.data.propiedades[t.propiedadId]||{};out.push({c:'inquilinos',r:t,ic:t.estado==='activo'?'userPlus':'userMinus',cls:'s-inq',t:(t.estado==='activo'?'Alta: ':'Baja: ')+t.nombre,s:(p.nombre||'')+' · '+(t.estado==='activo'?'desde el '+fechaLarga(t.fechaInicio):'salió el '+fechaLarga(t.fechaBaja)),amt:'',f:'inquilinos'})}
+  for(const a of list('avisos')){const t=get('inquilinos',a.inquilinoId)||S.data.inquilinos[a.inquilinoId]||{};out.push({c:'avisos',r:a,ic:'chat',cls:'s-aviso',t:'Aviso a '+(t.nombre||'—'),s:ETAPA_TXT[a.etapa]+' · '+fechaLarga(a.fecha),amt:'',f:'avisos'})}
+  return out.sort((a,b)=>b.r.updatedAt-a.r.updatedAt);
+}
+function feedRow(x){return`<button class="li" data-a="edit" data-c="${x.c}" data-id="${x.r.id}"><span class="ic ${x.cls}">${I[x.ic]}</span><span class="it"><b>${esc(x.t)}</b><span>${esc(x.s)}</span></span><span class="amt">${x.amt}</span></button>`}
+
+const VIEWS={
+  inicio(){
+    let h='';
+    const props=list('propiedades');
+    if(!props.length){
+      h+=`<section class="card empty"><div class="ic">${I.key}</div><h2>Empecemos con tus propiedades</h2><p class="muted">Agrega cada casa o departamento que rentas. Después registras a tus inquilinos y sus recibos.</p>${isOwner()?`<button class="btn pri big full" data-a="newprop">${I.plus} Agregar propiedad</button>`:'<p>Pide al propietario que agregue las propiedades.</p>'}</section>`;
+      return h;
+    }
+    const it=tuDia(),done=it.filter(x=>x.done).length;
+    h+=`<section><div class="sh"><h2>Tu día</h2><span class="cnt">${done} de ${it.length} listo</span></div><div class="card"><div class="daytop"><div class="prog"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div></div>${it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>'}</div></section>`;
+    h+=`<section><div class="sh"><h2>¿Qué quieres anotar?</h2></div><div class="acts">
+      <button class="act a-gasto" data-a="gasto"><span class="ic">${I.bolt}</span><span>Recibo de luz, agua o gas<small>Lo que pagaste este mes</small></span></button>
+      <button class="act a-pago" data-a="pago"><span class="ic">${I.cash}</span><span>Pago de renta<small>Un inquilino te pagó</small></span></button>
+      ${isOwner()?`<button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino<small>Alguien empieza a rentar</small></span></button>
+      <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja<small>Alguien deja de rentar</small></span></button>`:''}
+    </div></section>`;
+    const f=feed().slice(0,5);
+    h+=`<section><div class="sh"><h2>Lo último</h2>${f.length?`<button class="btn sm" data-a="tab" data-t="hist">Ver historial</button>`:''}</div><div class="card">${f.length?f.map(feedRow).join(''):'<p class="muted">Aquí verás lo último que anotes.</p>'}</div></section>`;
+    return h;
+  },
+  props(){
+    const ps=propsOrd();const occ=ps.filter(p=>inqDe(p.id)).length;
+    const card=p=>{const t=inqDe(p.id);const st=t?estadoRenta(t):null;
+      return`<button class="pcard" data-a="pdet" data-id="${p.id}"><div class="ph"><span class="ptype">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${t?'<span class="chip info">Rentada</span>':'<span class="chip off">Desocupada</span>'}</div><div class="pn">${esc(p.nombre)}</div><div class="pt">${t?esc(t.nombre)+' · '+money(t.renta)+' al mes':'Sin inquilino · renta sugerida '+money(p.renta)}</div>${t?`<div class="ps">${chipRenta(st)}${chipContrato(t)}</div>`:''}</button>`};
+    const predios=list('predios').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+    const solos=ps.filter(p=>!p.predioId||!get('predios',p.predioId));
+    let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
+    if(isOwner())h+=`<button class="btn pri full" data-a="newprop" style="margin-bottom:14px">${I.plus} Agregar propiedad</button>`;
+    if(solos.length)h+='<div class="plist">'+solos.map(card).join('')+'</div>';
+    for(const d of predios){const us=ps.filter(p=>p.predioId===d.id);
+      h+=`<div class="sh" style="margin-top:20px"><h2 style="font-size:21px">${esc(d.nombre)}</h2><span class="cnt">${us.length} depto${us.length===1?'':'s'}</span></div>`;
+      if(isOwner())h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button></div>${chipPredial(d)?`<div class="ps" style="margin:-2px 0 12px">${chipPredial(d)}</div>`:''}`;
+      h+='<div class="plist">'+us.sort((a,b)=>String(a.interior).localeCompare(String(b.interior),'es',{numeric:true})).map(card).join('')+'</div>'}
+    if(!ps.length)h+='<div class="card empty"><p class="muted">Aún no hay propiedades.</p></div>';
+    return h+'</section>';
+  },
+  hist(){
+    const fs=[['todo','Todo'],['gastos','Recibos'],['pagos','Pagos'],['inquilinos','Inquilinos'],['avisos','Avisos']];
+    let all=feed();if(HF!=='todo')all=all.filter(x=>x.f===HF);
+    return`<section><div class="sh"><h2>Historial</h2><span class="cnt">${all.length} registros</span></div><div class="filters">${fs.map(([k,n])=>`<button class="btn${HF===k?' on':''}" data-a="filt" data-f="${k}">${n}</button>`).join('')}</div>
+      <div class="card">${all.length?all.slice(0,HLIM).map(feedRow).join(''):'<p class="muted">No hay registros todavía.</p>'}</div>${all.length>HLIM?`<div class="sep"></div><button class="btn full" data-a="hmore">Ver más</button>`:''}<p class="hint">Toca un renglón para corregirlo o borrarlo.</p></section>`;
+  },
+  resumen(){return resumen()}
+};
+
+/* Detalle de propiedad */
+function pdet(id){
+  const p=prop(id);if(!p)return closeSheet();const t=inqDe(id);const st=t?estadoRenta(t):null;
+  let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`);
+  if(t){
+    h+=`<div class="box"><div class="ph"><h3>${esc(t.nombre)}</h3>${chipRenta(st)}</div><div class="muted">${money(t.renta)} al mes · paga el día ${esc(t.diaPago)} · desde el ${fechaLarga(t.fechaInicio)}</div><div class="muted">${t.telefono?'WhatsApp '+esc(t.telefono):'Sin WhatsApp registrado'}</div><div class="ps" style="margin-top:8px">${chipContrato(t)}</div>
+      <div class="sep"></div><div class="row"><button class="btn wa" data-a="wa" data-id="${t.id}" ${st&&st.etapa?`data-e="${st.etapa}"`:''}> ${I.chat} Mensaje de renta</button><button class="btn" data-a="pago" data-id="${t.id}">${I.cash} Registrar pago</button></div>
+      ${isOwner()?`<div class="sep"></div><div class="row"><button class="btn sm" data-a="edit" data-c="inquilinos" data-id="${t.id}">${I.edit} Corregir datos</button><button class="btn sm" data-a="renov" data-id="${t.id}">${I.refresh} Renovar contrato</button><button class="btn sm" data-a="baja" data-id="${t.id}">${I.userMinus} Dar de baja</button></div>`:''}</div>`;
+  }else{
+    h+=`<div class="box"><h3>Desocupada</h3><div class="muted">Renta sugerida ${money(p.renta)} · día de pago ${esc(p.diaPago)}</div>${isOwner()?`<div class="sep"></div><button class="btn pri full" data-a="alta" data-id="${p.id}">${I.userPlus} Registrar inquilino</button>`:''}</div>`;
+  }
+  if(isOwner()){const dpr=predioDe(p);const src=(dpr&&(dpr.predialMonto||dpr.predialFecha))?{r:dpr,c:'predios'}:((p.predialFecha||p.predialMonto)?{r:p,c:'propiedades'}:null);
+    if(src)h+=`<div class="box"><h3>Predial${src.c==='predios'?' del edificio':''}</h3><div class="muted">${src.r.predialMonto?money(src.r.predialMonto)+' al año':''}${src.r.predialMonto&&src.r.predialFecha?' · ':''}${src.r.predialFecha?'vence el '+fechaCompleta(src.r.predialFecha):''}</div>${src.r.predialPagado?`<div class="small muted">Último pago: ${fechaCompleta(src.r.predialPagado)}</div>`:''}${src.r.predialFecha?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="pred-pag" data-c="${src.c}" data-id="${src.r.id}">${I.check} Ya pagué el predial</button>`:''}</div>`}
+  const gs=list('gastos').filter(g=>g.propiedadId===id);
+  const meses=[...new Set(gs.map(g=>g.mes))].sort().slice(-4);
+  if(meses.length){
+    const sv=Object.keys(SERV).filter(s=>hasServ(p,s));
+    h+=`<div class="box"><h3>Recibos recientes</h3><table><tr><th>Mes</th>${sv.map(s=>`<th>${SERV[s].n}</th>`).join('')}</tr>${meses.reverse().map(m=>`<tr><td style="text-transform:capitalize">${mesCorto(m)} ${m.slice(2,4)}</td>${sv.map(s=>{const g=gs.find(x=>x.mes===m&&x.servicio===s);return`<td>${g?money(g.monto):'—'}</td>`}).join('')}</tr>`).join('')}</table></div>`;
+  }
+  const prev=list('inquilinos').filter(x=>x.propiedadId===id&&x.estado!=='activo').sort((a,b)=>a.fechaBaja<b.fechaBaja?1:-1);
+  if(prev.length)h+=`<div class="box"><h3>Inquilinos anteriores</h3>${prev.map(x=>`<div class="small" style="padding:4px 0">${esc(x.nombre)} · ${fechaLarga(x.fechaInicio)} ${x.fechaInicio.slice(0,4)} – ${fechaLarga(x.fechaBaja)} ${String(x.fechaBaja).slice(0,4)}</div>`).join('')}</div>`;
+  if(isOwner())h+=`<div class="row"><button class="btn" data-a="editprop" data-id="${p.id}">${I.edit} Editar propiedad</button><button class="btn" data-a="delprop" data-id="${p.id}" style="color:var(--rojo)">${I.trash} Borrar</button></div>`;
+  sheet(h);
+}
+
+/* Resumen: aprende de los recibos */
+function cambios(mes){
+  const out=[];
+  for(const p of propsOrd())for(const s of Object.keys(SERV)){
+    const ser=list('gastos').filter(g=>g.propiedadId===p.id&&g.servicio===s).sort((a,b)=>a.mes<b.mes?-1:1);
+    const cur=ser.find(g=>g.mes===mes);if(!cur)continue;
+    const prev=ser.filter(g=>g.mes<mes).slice(-6).map(g=>+g.monto);
+    if(prev.length<2){out.push({p,s,cur,learning:true});continue}
+    const base=median(prev);if(!base)continue;
+    out.push({p,s,cur,base,pct:(cur.monto-base)/base,n:prev.length});
+  }
+  return out;
+}
+function totalMes(m,solo){const r={luz:0,agua:0,gas:0};for(const g of list('gastos'))if(g.mes===m&&(!solo||solo.has(g.propiedadId+'|'+g.servicio)))r[g.servicio]+=+g.monto;r.total=r.luz+r.agua+r.gas;return r}
+function rentasMes(m){
+  let esperado=0,cobrado=0;const falta=[];
+  for(const t of list('inquilinos')){if(!prop(t.propiedadId))continue;const due=dueDate(m,Number(t.diaPago)||1);
+    if(t.fechaInicio>due)continue;if(t.estado!=='activo'&&t.fechaBaja&&t.fechaBaja<due)continue;
+    esperado+=+t.renta;const ps=list('pagos').filter(x=>x.inquilinoId===t.id&&x.mes===m);const s=ps.reduce((a,x)=>a+ +x.monto,0);cobrado+=s;if(!ps.length&&due<=today())falta.push(t)}
+  return{esperado,cobrado,falta};
+}
+function chart(endMes){
+  const ms=[];for(let i=5;i>=0;i--)ms.push(addMonths(endMes,-i));
+  const tots=ms.map(x=>totalMes(x));const max=Math.max(1,...tots.map(t=>t.total));
+  const W=600,H=230,bw=60,gap=(W-40-bw*6)/5;
+  let g='';
+  ms.forEach((m,i)=>{const x=20+i*(bw+gap);let y=H-34;
+    for(const s of['luz','agua','gas']){const h=tots[i][s]/max*(H-80);if(h>0){y-=h;g+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${SCOL[s]}" rx="3"/>`}}
+    if(tots[i].total)g+=`<text x="${x+bw/2}" y="${y-8}" text-anchor="middle" font-size="17" font-weight="700" fill="#0F2340">${Math.round(tots[i].total/100)/10}k</text>`;
+    g+=`<text x="${x+bw/2}" y="${H-10}" text-anchor="middle" font-size="18" fill="${m===endMes?'#1A4772':'#4A5B75'}" font-weight="${m===endMes?800:500}">${mesCorto(m)}</text>`});
+  return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Gastos de servicios de los últimos 6 meses"><line x1="10" x2="${W-10}" y1="${H-34}" y2="${H-34}" stroke="#DCE4EF" stroke-width="2"/>${g}</svg><div class="legend">${Object.keys(SERV).map(s=>`<span><i style="background:${SCOL[s]}"></i>${SERV[s].n}</span>`).join('')}</div>`;
+}
+function resumen(){
+  const m=RMES,tm=totalMes(m),rm=rentasMes(m);
+  const pares=new Set(list('gastos').filter(g=>g.mes===m).map(g=>g.propiedadId+'|'+g.servicio));
+  const tp=totalMes(addMonths(m,-1),pares),tmc=totalMes(m,pares);
+  const ch=cambios(m);const big=ch.filter(x=>!x.learning&&Math.abs(x.pct)>=0.15).sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct));
+  const normal=ch.filter(x=>!x.learning&&Math.abs(x.pct)<0.15).length,learn=ch.filter(x=>x.learning).length;
+  const coms=list('comentarios');
+  // proyección del siguiente mes
+  let proy=0,proyN=0;for(const p of list('propiedades'))for(const s of Object.keys(SERV)){if(!hasServ(p,s))continue;const v=list('gastos').filter(g=>g.propiedadId===p.id&&g.servicio===s&&g.mes<=m).sort((a,b)=>a.mes<b.mes?-1:1).slice(-6).map(g=>+g.monto);if(v.length>=2){proy+=median(v);proyN++}}
+  const dif=tp.total?(tmc.total-tp.total)/tp.total:null;
+  const pct=rm.esperado?Math.min(100,Math.round(rm.cobrado/rm.esperado*100)):0;
+  let h=`<div class="mnav"><button class="btn sm" data-a="mprev" aria-label="Mes anterior">${I.back}</button><b>${mesLargo(m)}</b><button class="btn sm" data-a="mnext" aria-label="Mes siguiente" ${m>=curMonth()?'disabled style="opacity:.4"':''}><span style="transform:rotate(180deg);display:flex">${I.back}</span></button></div><div class="grid2">`;
+  h+=`<div class="card"><div class="kl">Rentas cobradas</div><div class="kpi">${money(rm.cobrado)}</div><div class="muted">de ${money(rm.esperado)} esperados</div><div class="bar"><i style="width:${pct}%"></i></div><p class="phrase">${rm.falta.length?'Falta: '+rm.falta.map(t=>esc(firstName(t.nombre))+' ('+esc(prop(t.propiedadId).nombre)+')').join(', '):'Todos pagaron este mes.'}</p></div>`;
+  h+=`<div class="card"><div class="kl">Servicios del mes</div><div class="kpi">${money(tm.total)}</div><p class="phrase">${dif==null?'Aún no hay mes anterior para comparar.':Math.abs(dif)<0.03?'Casi igual que el mes pasado.':(dif>0?`<span class="up">Subió ${Math.round(dif*100)}%</span>`:`<span class="down">Bajó ${Math.round(-dif*100)}%</span>`)+' contra '+MESES[Number(addMonths(m,-1).slice(5))-1]+' en los mismos recibos ('+money(tp.total)+').'}</p><p class="muted small">Luz ${money(tm.luz)} · Agua ${money(tm.agua)} · Gas ${money(tm.gas)}</p></div>`;
+  h+=`<div class="card"><div class="kl">Te queda</div><div class="kpi">${money(rm.cobrado-tm.total)}</div><p class="phrase">Rentas cobradas menos recibos de servicios de ${MESES[Number(m.slice(5))-1]}.</p></div>`;
+  h+=`<div class="card"><div class="kl">Para el próximo mes</div><div class="kpi">${proyN?money(proy):'—'}</div><p class="phrase">${proyN?'Es lo que normalmente pagas de servicios, según tus últimos recibos.':'Necesito al menos 2 meses de recibos para calcularlo.'}</p></div>`;
+  h+='</div><div class="sep"></div>';
+  h+=`<section class="card"><div class="kl">Lo que cambió</div><h2 style="font-size:22px;margin:4px 0 8px">${big.length?big.length+' recibo'+(big.length>1?'s':'')+' fuera de lo normal':'Todo dentro de lo normal'}</h2>`;
+  for(const x of big){const k=x.p.id+'|'+x.s+'|'+m;const c=coms.find(c=>c.clave===k);const up=x.pct>0;
+    h+=`<div class="chg"><span class="ic ${up?'late':'done'}">${up?I.up:I.down}</span><div class="it"><b>${SERV[x.s].n} · ${esc(x.p.nombre)}</b><span><span class="${up?'up':'down'}" style="font-weight:800">${up?'Subió':'Bajó'} ${Math.round(Math.abs(x.pct)*100)}%</span> · ${money(x.cur.monto)} contra lo normal de ${money(x.base)}</span>${c?`<div class="note">${I.note} ${esc(c.texto)}</div>`:''}<div class="sep" style="height:8px"></div><button class="btn sm" data-a="coment" data-k="${esc(k)}" data-t="${esc(SERV[x.s].n+' · '+x.p.nombre+' · '+mesLargo(m))}">${I.note} ${c?'Editar comentario':'Comentar'}</button></div></div>`}
+  h+=`<p class="muted small" style="margin-top:10px">${normal?normal+' recibo'+(normal>1?'s':'')+' sin cambios importantes. ':''}${learn?'Aún aprendo de '+learn+' recibo'+(learn>1?'s':'')+' (necesito 2 meses previos). ':''}"Lo normal" es la mediana de los últimos 6 recibos de ese servicio en esa propiedad; marco los que se mueven 15% o más.</p></section><div class="sep"></div>`;
+  h+=`<section class="card"><div class="kl">Últimos 6 meses</div>${chart(m)}<details class="more"><summary class="btn sm">Ver más</summary><div class="sep"></div>${detalleTabla(m)}</details></section>`;
+  return h;
+}
+function detalleTabla(m){
+  const ms=[];for(let i=2;i>=0;i--)ms.push(addMonths(m,-i));
+  let h='<table><tr><th>Propiedad</th>'+ms.map(x=>`<th style="text-transform:capitalize">${mesCorto(x)}</th>`).join('')+'</tr>';
+  for(const p of propsOrd()){h+=`<tr><td>${esc(p.nombre)}</td>`+ms.map(x=>{const s=list('gastos').filter(g=>g.propiedadId===p.id&&g.mes===x).reduce((a,g)=>a+ +g.monto,0);return`<td>${s?money(s):'—'}</td>`}).join('')+'</tr>'}
+  return h+'</table>';
+}
+
+/* Ajustes */
+function ajustes(){
+  const own=isOwner(),c=cfg();
+  let h=`<div class="shead"><span></span><button class="btn sm" data-a="close">${I.x} Cerrar</button></div><h2 class="q">Ajustes</h2>`;
+  h+=`<div class="box"><h3>Tu nombre</h3><input class="inp" id="fname" maxlength="40" value="${esc(S.deviceName)}" placeholder="Ej. Carlos"><div class="sep" style="height:10px"></div><button class="btn full" data-a="aj-name">${I.check} Guardar nombre</button></div>`;
+  h+=`<div class="box"><h3>Conexión</h3>`;
+  if(DEMO)h+='<p class="muted">Estás en modo demostración. Abre la app sin "?demo" para conectarla a una hoja real.</p>';
+  else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${S.rol==='propietario'?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
+  else h+=`<p class="muted">Pide al propietario el enlace de conexión y ábrelo en este teléfono.</p><details class="more"><summary class="btn sm">Conectar a mano</summary><label class="f" for="furl">Dirección de la hoja (/exec)</label><input class="inp" id="furl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"><label class="f" for="fkey">Clave</label><input class="inp" id="fkey" type="password" autocomplete="off"><label class="f" for="fname2">Tu nombre</label><input class="inp" id="fname2" maxlength="40" value="${esc(S.deviceName)}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri full" data-a="aj-manual">Conectar</button></details>`;
+  h+='</div>';
+  if(own){
+    h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto de los recordatorios de 15, 10 y 3 días.</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
+    h+=`<div class="box"><h3>Descargar en Excel (CSV)</h3><div class="row"><button class="btn sm" data-a="aj-csv" data-c="gastos">${I.download} Recibos</button><button class="btn sm" data-a="aj-csv" data-c="pagos">${I.download} Pagos</button><button class="btn sm" data-a="aj-csv" data-c="inquilinos">${I.download} Inquilinos</button></div></div>`;
+  }
+  h+=`<p class="hint" style="text-align:center">Traza Casa · versión ${VER}</p>`;
+  sheet(h);
+}
+function plantillas(){
+  const c=cfg();const lab={p15:'15 días antes',p10:'10 días antes',p3:'3 días antes',venc:'Cuando ya venció',gen:'Mensaje de renta del mes (botón de la propiedad)'};
+  let h=shead('Mensajes de WhatsApp')+`<p class="muted small">Puedes usar: {nombre} {propiedad} {monto} {fecha} {propietario}</p>
+    <label class="f" for="pl_prop">¿Con qué nombre firmas?</label><input class="inp" id="pl_prop" maxlength="60" value="${esc(c.propietario)}" placeholder="Ej. Lic. Carrera">
+    <label class="f" for="pl_neg">Nombre del negocio (opcional)</label><input class="inp" id="pl_neg" maxlength="80" value="${esc(c.negocio)}">`;
+  for(const k of Object.keys(DEF_PLANT))h+=`<label class="f" for="pl_${k}">${lab[k]}</label><textarea class="inp" id="pl_${k}" maxlength="500">${esc(c.plantillas[k])}</textarea>`;
+  const t=activos()[0];
+  if(t)h+=`<label class="f">Así le llega a ${esc(firstName(t.nombre))} (3 días antes):</label><div class="waprev">${esc(mensaje(t,estadoRenta(t)||{due:today(),dias:3},'3'))}</div>`;
+  sheet(h+`<div class="sep"></div><button class="btn pri big full" data-a="pl-save">${I.check} Guardar mensajes</button>`);
+}
+function compartirEnlace(){
+  const raw=btoa(unescape(encodeURIComponent(JSON.stringify({u:S.conn.u,k:S.conn.k})))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const link=location.origin+location.pathname+'#c='+raw;
+  const txt='Abre este enlace en tu teléfono para usar la app de rentas: '+link;
+  if(navigator.share){navigator.share({text:txt}).catch(()=>{})}
+  else window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank','noopener');
+  toast('El enlace lleva la clave. Mándalo solo por mensaje privado.');
+}
+function csvCell(v){let s=String(v==null?'':v);if(/^[=+\-@]/.test(s))s="'"+s;return'"'+s.replace(/"/g,'""')+'"'}
+function exportCSV(c){
+  const rows=list(c);const pn=id=>(S.data.propiedades[id]||{}).nombre||'';const tn=id=>(S.data.inquilinos[id]||{}).nombre||'';
+  let head,body;
+  if(c==='gastos'){head=['Mes','Propiedad','Servicio','Monto','Nota'];body=rows.sort((a,b)=>a.mes<b.mes?-1:1).map(r=>[r.mes,pn(r.propiedadId),SERV[r.servicio].n,r.monto,r.nota])}
+  else if(c==='pagos'){head=['Mes','Fecha','Inquilino','Propiedad','Monto','Nota'];body=rows.sort((a,b)=>a.fecha<b.fecha?-1:1).map(r=>[r.mes,r.fecha,tn(r.inquilinoId),pn(r.propiedadId),r.monto,r.nota])}
+  else{head=['Nombre','Propiedad','WhatsApp','Renta','Día de pago','Entrada','Salida','Estado'];body=rows.map(r=>[r.nombre,pn(r.propiedadId),r.telefono,r.renta,r.diaPago,r.fechaInicio,r.fechaBaja,r.estado])}
+  const csv='﻿'+[head,...body].map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='trazacasa-'+c+'-'+today()+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+
+/* ---------- Eventos ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');
+  if(!b){if(e.target.id==='sheet')closeSheet();return}
+  const a=b.dataset.a;
+  if(a==='back'&&F&&(F.flow==='aj'||F.flow==='pdet')){ajustesBack();return}
+  if(ACT[a]){e.preventDefault();ACT[a](b.dataset,b)}
+});
+function ajustesBack(){if(F.flow==='aj'){F={flow:'aj',hist:[]};ajustes()}else closeSheet()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();if(e.key==='Enter'&&e.target.matches('.money input')){const b=$('#sheet .btn.pri');if(b)b.click()}});
+window.addEventListener('online',()=>sync());
+document.addEventListener('change',e=>{if(e.target.id==='fini'&&F&&F.flow==='alta'&&F.dur&&F.dur!=='otra'&&e.target.value){const f=document.getElementById('ffin');if(f)f.value=addMesesFecha(e.target.value,Number(F.dur))}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();sync()}});
+setInterval(()=>{if(!document.hidden)sync()},60000);
+setInterval(renderHeader,30000);
+
+/* Enlace de conexión (#c=...) */
+(function(){
+  const m=location.hash.match(/^#c=([A-Za-z0-9_-]+)$/);if(!m||DEMO)return;
+  history.replaceState(null,'',location.pathname+location.search);
+  try{const j=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));
+    if(okUrl(j.u)&&typeof j.k==='string'&&j.k.length>=16&&j.k.length<=200){window._link=j;setTimeout(()=>{F={flow:'link',hist:[]};sheet(shead('Conectar este teléfono')+`<p class="muted">Escribe tu nombre para que el propietario sepa quién eres. Después él aprueba este teléfono.</p><label class="f" for="fname">Tu nombre</label><input class="inp" id="fname" maxlength="40" value="${esc(S.deviceName)}" data-focus><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="link-ok">Conectar</button>`)},50)}}
+  catch(e){}
+})();
+
+/* ---------- Demostración ---------- */
+function demoState(){
+  const st=blank();st.deviceName='Carlos';st.rol='propietario';st.status='ok';st.lastSync=Date.now();
+  st.config={propietario:'Carlos Ramírez',negocio:'',plantillas:{},v:1,updatedAt:1};
+  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const M=curMonth(),hoy=today(),d=Number(hoy.slice(8));
+  const clamp=x=>Math.max(1,Math.min(28,x));
+  const P=[['p1','Depto 1 · Madero','Departamento',6500,clamp(d-4),'luz,agua,gas'],['p2','Depto 2 · Madero','Departamento',6800,clamp(d+2),'luz,agua,gas'],['p3','Casa Jardines del Moral','Casa',12000,1,'luz,agua,gas'],['p4','Casa Campestre','Casa',15500,clamp(d+9),'luz,agua,gas'],['p5','Local Centro','Local',9000,1,'luz,agua']];
+  const ts=Date.now()-864e5*30;let n=0;const mk=o=>Object.assign({eliminado:0,updatedAt:ts+(n++)*60000},o);
+  const PX={p1:{predioId:'e1',interior:'1'},p2:{predioId:'e1',interior:'2'},p3:{predialMonto:5400,predialFecha:addDays(hoy,22)}};
+  for(const p of P){const x=PX[p[0]]||{};st.data.propiedades[p[0]]=mk(Object.assign({id:p[0],nombre:x.interior?'Edificio Madero · '+x.interior:p[1],tipo:p[2],renta:p[3],diaPago:p[4],servicios:p[5],direccion:'León, Gto.',notas:''},x))}
+  st.data.predios.e1=mk({id:'e1',nombre:'Edificio Madero',direccion:'León, Gto.',predialMonto:7800,predialFecha:addDays(hoy,12),predialClave:'',predialPagado:addDays(hoy,-353),notas:''});
+  const T=[['t1','p1','Ana López Ruiz','4775550101','2025-08-01'],['t2','p2','Jorge Ramírez','4775550102','2026-02-10'],['t3','p3','Lucía Hernández','4775550103','2024-11-01'],['t4','p4','Roberto Sánchez','4775550104','2025-05-15']];
+  for(const t of T){const p=P.find(x=>x[0]===t[1]);st.data.inquilinos[t[0]]=mk({id:t[0],propiedadId:t[1],nombre:t[2],telefono:t[3],renta:p[3],diaPago:p[4],fechaInicio:t[4],fechaFin:({t1:addDays(hoy,34),t2:addDays(hoy,300),t3:addDays(hoy,200),t4:addDays(hoy,150)})[t[0]],fechaBaja:'',estado:'activo',notas:''})}
+  st.data.inquilinos.t0=mk({id:'t0',propiedadId:'p5',nombre:'Mario Torres',telefono:'4775550100',renta:9000,diaPago:1,fechaInicio:'2025-01-01',fechaBaja:addMonths(M,-1)+'-30',estado:'baja',notas:''});
+  const base={luz:[620,580,1450,1800,900],agua:[260,240,410,480,180],gas:[380,350,520,600,0]};
+  for(let i=-6;i<=0;i++){const m=addMonths(M,i);
+    P.forEach((p,j)=>{for(const s of['luz','agua','gas']){if(!p[5].includes(s))continue;if(i===0&&!(s==='luz'&&j<3))continue;
+      let v=base[s][j]*(0.92+rnd()*0.16);if(i===0&&j===2&&s==='luz')v=base.luz[2]*1.38;if(i===0&&j===1&&s==='luz')v=base.luz[1]*0.97;if(i===-1&&j===1&&s==='agua')v=base.agua[1]*0.7;
+      const id='g'+j+s+(i+10);st.data.gastos[id]=mk({id,propiedadId:p[0],servicio:s,mes:m,monto:Math.round(v/10)*10,nota:''})}})}
+  for(const t of T){const p=P.find(x=>x[0]===t[1]);for(let i=-6;i<=0;i++){const m=addMonths(M,i);const due=dueDate(m,p[4]);if(due<t[4])continue;if(due>hoy)continue;if(t[0]==='t1'&&i===0)continue;
+    const id='y'+t[0]+(i+10);st.data.pagos[id]=mk({id,inquilinoId:t[0],propiedadId:t[1],mes:m,fecha:due,monto:p[3],nota:''})}}
+  st.data.avisos.a1=mk({id:'a1',inquilinoId:'t4',mes:M,etapa:'15',fecha:addMonths(M,0)+'-'+String(Math.max(1,d-6)).padStart(2,'0')});
+  st.data.comentarios.c1=mk({id:'c1',clave:'p3|luz|'+M,texto:'Instalaron un minisplit en la recámara principal.',fecha:hoy});
+  return st;
+}
+
+/* ---------- Arranque ---------- */
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+render();
+if(S.conn)sync();
+</script>
+</body>
+</html>
