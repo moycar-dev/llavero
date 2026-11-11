@@ -320,7 +320,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 /* Barra inferior fija abajo del teléfono */
 html,body{height:100%}
 body{height:100vh;height:100dvh}
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;box-shadow:0 -1px 0 var(--line)}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;box-shadow:0 -1px 0 var(--line)}
 main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 </style>
 </head>
@@ -340,7 +340,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.5.8', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.9', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -920,6 +920,9 @@ FLOWS.edit={
   del(){sheet(shead('¿Borrar este registro?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="e-delok">'+I.trash+' Sí, borrar</button>')}
 };
 /* Borrar propiedad */
+FLOWS.delpredio={start(){F.step='c';this.c()},c(){const d=get('predios',F.id);const us=list('propiedades').filter(p=>p.predioId===F.id);const ocu=us.filter(p=>inqDe(p.id));
+  if(ocu.length){sheet(shead('No se puede borrar todavía')+`<p class="muted">Primero da de baja a los inquilinos de: <b>${ocu.map(p=>esc(p.interior||p.nombre)).join(', ')}</b>.</p>`);return}
+  sheet(shead('¿Borrar '+esc(d.nombre)+'?')+`<p class="muted">Se borra el edificio y sus ${us.length} departamento${us.length===1?'':'s'}. Desaparecen de la lista; los gastos, pagos y recibos siguen en la hoja como historial.</p><button class="btn danger big full" data-a="dpd-ok">${I.trash} Sí, borrar edificio</button>`)}};
 FLOWS.delprop={start(){F.step='c';this.c()},c(){const p=prop(F.id);sheet(shead('¿Borrar '+esc(p.nombre)+'?')+'<p class="muted">Desaparece de la lista. Sus gastos y pagos siguen en la hoja como historial.</p><button class="btn danger big full" data-a="dp-ok">'+I.trash+' Sí, borrar</button>')}};
 
 /* ---------- Acciones ---------- */
@@ -945,6 +948,8 @@ const ACT={
   newprop(){startFlow('prop',{})},
   editprop(d){startFlow('prop',{id:d.id})},
   delprop(d){if(inqDe(d.id)){toast('Primero da de baja al inquilino',null,true);return}startFlow('delprop',{id:d.id})},
+  delpredio(d){startFlow('delpredio',{id:d.id})},
+  'dpd-ok'(){const d=get('predios',F.id);const us=list('propiedades').filter(p=>p.predioId===F.id);if(us.some(p=>inqDe(p.id)))return;const did=F.id;closeSheet();OPENB&&OPENB.delete(did);commit([{c:'predios',r:Object.assign({},d,{eliminado:1})}].concat(us.map(p=>({c:'propiedades',r:Object.assign({},p,{eliminado:1})}))),'Edificio borrado')},
   'dp-ok'(){const p=prop(F.id);closeSheet();commit([{c:'propiedades',r:Object.assign({},p,{eliminado:1})}],'Propiedad borrada')},
   'g-serv'(d){F.s=d.s;go(F.pid?'monto':'prop')},
   'g-prop'(d){F.pid=d.id;go('monto')},
@@ -1236,7 +1241,7 @@ const VIEWS={
       return`<button class="urow" data-a="pdet" data-id="${p.id}"><span class="un">${esc(p.interior||p.nombre)}</span><span class="ut"><b>${t?esc(t.nombre):'Desocupado'}</b><span>${t?money(t.renta)+' al mes':'Renta sugerida '+money(p.renta)}${p.notas?' · '+esc(p.notas):''}</span></span>${t?chipRenta(st):'<span class="chip off">Libre</span>'}</button>`};
     for(const d of predios){const us=ps.filter(p=>p.predioId===d.id).sort((a,b)=>String(a.interior).localeCompare(String(b.interior),'es',{numeric:true}));const open=OPENB.has(d.id);const oc=us.filter(p=>inqDe(p.id)).length;
       h+=`<div class="bld${open?' open':''}"><button class="bhead" data-a="bld" data-id="${d.id}" aria-expanded="${open}"><span class="bn">${esc(d.nombre)}</span><span class="cnt">${us.length} depto${us.length===1?'':'s'} · ${oc} rentado${oc===1?'':'s'}</span><span class="chev">${I.back}</span></button><div class="bbody"${open?'':' hidden'}>`;
-      h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button>${incl(d).length?`<button class="btn sm" data-a="gasto" data-id="${d.id}">${I.bolt} Recibo del edificio</button>`:''}</div>`;
+      h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button>${incl(d).length?`<button class="btn sm" data-a="gasto" data-id="${d.id}">${I.bolt} Recibo del edificio</button>`:''}<button class="btn sm" data-a="delpredio" data-id="${d.id}" style="color:var(--rojo)">${I.trash} Borrar edificio</button></div>`;
       const ch=(isOwner()?chipPredial(d):'')+chipIncl(d);if(ch)h+=`<div class="ps" style="margin:-2px 0 12px">${ch}</div>`;
       h+='<div class="ulist">'+(us.length?us.map(urow).join(''):'<p class="muted small">Aún no hay departamentos.</p>')+'</div></div></div>'}
     if(!ps.length)h+='<div class="card empty"><p class="muted">Aún no hay propiedades.</p></div>';
