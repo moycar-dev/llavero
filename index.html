@@ -322,6 +322,8 @@ html,body{height:100%}
 body{height:100vh;height:100dvh}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;box-shadow:0 -1px 0 var(--line)}
 main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+.stp{display:flex;align-items:center;gap:10px}.stp .btn{min-width:60px;min-height:56px;padding:0;font-size:28px;font-weight:600}.stp input{flex:1;min-width:0;text-align:center;font:inherit;font-size:26px;font-weight:700;padding:12px;border:1.5px solid var(--line2);border-radius:16px;background:#fff;color:var(--ink)}
+.qtyb{flex:none;font-weight:800;font-size:18px;color:var(--teal);background:var(--teal-l);border-radius:12px;padding:4px 10px;margin-right:6px}
 </style>
 </head>
 <body>
@@ -340,7 +342,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.5.9', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.6.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -351,10 +353,10 @@ const COLS={
   avisos:['inquilinoId','mes','etapa','fecha'],
   comentarios:['clave','texto','fecha'],
   mantenimientos:['destino','motivo','fecha','horario','servicios','costo','proveedor','telProveedor','estado','avisados','restablecido','nota'],
-  inventario:['propiedadId','nombre','descripcion','estado','fechaRetiro','motivoRetiro'],
+  inventario:['propiedadId','nombre','descripcion','estado','fechaRetiro','motivoRetiro','cantidad'],
   revisiones:['inquilinoId','propiedadId','fecha','resultado','nota']
 };
-const NUMF={renta:1,diaPago:1,monto:1,predialMonto:1,costo:1};
+const NUMF={renta:1,diaPago:1,monto:1,predialMonto:1,costo:1,cantidad:1};
 const SERV={luz:{n:'Luz',i:'bolt'},agua:{n:'Agua',i:'drop'},gas:{n:'Gas',i:'flame'},internet:{n:'Internet',i:'wifi'}};
 const SCOL={luz:'#BE900E',agua:'#2F6AA0',gas:'#5B6B82',internet:'#2F8F83'};
 const TIPOS=['Departamento','Casa','Local','Cuarto','Otro'];
@@ -569,10 +571,13 @@ function mensajeMant(t,m,fin){
   const cuando=(f===today()?'hoy':f===addDays(today(),1)?'mañana':'el '+fechaLarga(f))+(m.horario?', '+m.horario:'');
   return plant(fin?'mantfin':'mant',{nombre:firstName(t.nombre),propietario:propietarioNombre(),propiedad:mantBase(m),motivo:m.motivo,cuando,corte:sv.length?'Durante ese tiempo no habrá '+lista(sv)+'. ':'',restab:sv.length?'Ya quedó restablecido: '+lista(sv)+'. ':''});
 }
-function mensajeInv(i){const c=cfg(),p=prop(i.propiedadId)||{};return'Hola'+(c.propietario?' '+c.propietario:'')+', te aviso que se retirará "'+i.nombre+'" de '+(p.nombre||'la propiedad')+(i.motivoRetiro?' ('+i.motivoRetiro+')':'')+'.'+(S.deviceName?' — '+S.deviceName:'')}
+function mensajeInv(i){const c=cfg(),p=prop(i.propiedadId)||{};return'Hola'+(c.propietario?' '+c.propietario:'')+', te aviso que se retirará "'+(qty(i)>1?qty(i)+' × ':'')+i.nombre+'" de '+(p.nombre||'la propiedad')+(i.motivoRetiro?' ('+i.motivoRetiro+')':'')+'.'+(S.deviceName?' — '+S.deviceName:'')}
+function qty(i){const n=Number(i&&i.cantidad);return n>0?n:1}
+/* Una sola vez: si la cantidad estaba escrita en la descripción ("4", "2 camas"), pasa al campo cantidad */
+function migrarInv(){if(DEMO||!S.conn)return;let n=0;for(const i of list('inventario')){if(i.cantidad!==''&&i.cantidad!=null&&Number(i.cantidad)>0)continue;const d=String(i.descripcion||'').trim();let m=d.match(/^(\d{1,4})$/),q=null,rest='';if(m){q=+m[1]}else{m=d.match(/^(\d{1,4})\s+(\S.*)$/);if(m){q=+m[1];rest=m[2]}}if(!q)continue;put('inventario',Object.assign({},i,{cantidad:q,descripcion:rest}));n++}if(n)afterChange()}
 function invDe(pid,est){return list('inventario').filter(i=>i.propiedadId===pid&&(!est||i.estado===est)).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))}
 function resItems(str){return String(str||'').split('|').filter(Boolean).map(x=>{const i=x.lastIndexOf('=');const v=RES[x.slice(i+1)]||RES.ok;return`<div class="tn"><span class="it"><b>${esc(x.slice(0,i))}</b></span><span class="chip ${v[1]}">${v[0]}</span></div>`}).join('')}
-function chkRows(inv){F.chk=F.chk||{};return inv.map(i=>`<div class="chk"><b>${esc(i.nombre)}</b>${i.descripcion?`<span class="muted small">${esc(i.descripcion)}</span>`:''}<div class="seg">${['ok','dano','falta'].map(v=>`<button class="btn sm${F.chk[i.id]===v?' on '+RES[v][1]:''}" data-a="b-chk" data-id="${i.id}" data-v="${v}">${RES[v][0]}</button>`).join('')}</div></div>`).join('')+`<label class="f" for="fnota">Observaciones (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(F.cnota||'')}"><div class="err" id="ferr" hidden></div>`}
+function chkRows(inv){F.chk=F.chk||{};return inv.map(i=>`<div class="chk"><b>${qty(i)>1?qty(i)+' × ':''}${esc(i.nombre)}</b>${i.descripcion?`<span class="muted small">${esc(i.descripcion)}</span>`:''}<div class="seg">${['ok','dano','falta'].map(v=>`<button class="btn sm${F.chk[i.id]===v?' on '+RES[v][1]:''}" data-a="b-chk" data-id="${i.id}" data-v="${v}">${RES[v][0]}</button>`).join('')}</div></div>`).join('')+`<label class="f" for="fnota">Observaciones (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(F.cnota||'')}"><div class="err" id="ferr" hidden></div>`}
 function chkProg(inv){F.chk=F.chk||{};return`<span class="chip info" id="chkprog">${inv.filter(i=>F.chk[i.id]).length} de ${inv.length} revisados</span>`}
 function chkRevisar(old,inv,fecha){const ch=F.chk||{};
   if(inv.some(i=>!ch[i.id])){const rows=[...document.querySelectorAll('.chk')];let first=null;inv.forEach((i,k)=>{if(!ch[i.id]&&rows[k]){rows[k].classList.add('miss');first=first||rows[k]}});if(first)first.scrollIntoView({block:'center',behavior:'smooth'});return{err:'Faltan artículos por revisar (marcados en rojo).'}}
@@ -624,7 +629,7 @@ async function sync(manual){
         if(loc){nd[c][id]=loc;keep.push(k)}}
       S.data=nd;S.pend=keep;S.rol=j.rol;
       if(S.configDirty===cfgSent){S.configDirty=0;if(j.config)S.config=j.config}
-      S.lastSync=Date.now();S.status='ok';S.err=null;
+      S.lastSync=Date.now();S.status='ok';S.err=null;migrarInv();
       if(j.rejected&&j.rejected.length&&manual!==false)toast('Algunos cambios no se permitieron con tu tipo de acceso',null,true);
     }
   }catch(e){S.status='offline'}
@@ -884,11 +889,12 @@ FLOWS.inv={
     const i=F.id?get('inventario',F.id):{};const p=prop(F.pid)||{};
     if(F.id&&!i.id)return volverProp(F.pid);
     const ya=invDe(F.pid,'en').map(x=>x.nombre.toLowerCase());
-    sheet(shead(F.id?'Artículo':'Agregar al inventario',`<span class="chip off">${esc(p.nombre||'')}</span>${i.estado==='retirado'?'<span class="chip warn">Retirado</span>':''}`)+
+    sheet(shead(F.id?'Artículo':'Agregar al inventario',`<span class="chip off">${esc(p.nombre||'')}</span>${i.estado==='retirado'?'<span class="chip warn">Retirado</span>':''}`)+(!F.id&&F.agregados&&F.agregados.length?`<p class="hint" style="margin:0 0 8px"><b>Agregados ahora (${F.agregados.length}):</b> ${F.agregados.map(esc).join(', ')}</p>`:'')+
       (F.id?'':`<label class="f">Toca uno o escribe el tuyo</label><div class="qk">${QK.filter(q=>!ya.includes(q.toLowerCase())).map(q=>`<button class="btn sm" data-a="inv-q" data-n="${esc(q)}">${esc(q)}</button>`).join('')}</div>`)+
       `<label class="f" for="fnom">¿Qué es?</label><input class="inp" id="fnom" maxlength="60" placeholder="Ej. TV, cama matrimonial" value="${esc(i.nombre||'')}" ${F.id?'':'data-focus'}>
+      <label class="f" for="fcant">Cantidad</label><div class="stp"><button class="btn" data-a="inv-menos" aria-label="Quitar uno">−</button><input id="fcant" inputmode="numeric" maxlength="4" value="${qty(i)}" aria-label="Cantidad"><button class="btn" data-a="inv-mas" aria-label="Agregar uno">+</button></div>
       <label class="f" for="fdesc">Descripción (opcional)</label><textarea class="inp" id="fdesc" maxlength="200" placeholder="Ej. Pantalla de 43 pulgadas, con control">${esc(i.descripcion||'')}</textarea>
-      <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="inv-save">${I.check} Guardar</button>`+
+      <div class="err" id="ferr" hidden></div><div class="sep"></div>`+(F.id?`<button class="btn pri big full" data-a="inv-save">${I.check} Guardar</button>`:`<button class="btn pri big full" data-a="inv-save" data-more="1">${I.plus} Guardar y agregar otro</button><div class="sep" style="height:10px"></div><button class="btn full" data-a="inv-save">${I.check} Guardar y terminar</button>`+(F.agregados&&F.agregados.length?`<div class="sep" style="height:10px"></div><button class="btn full" data-a="inv-fin">Ya terminé</button>`:''))+
       (F.id&&i.estado==='en'?`<div class="sep"></div><button class="btn full" data-a="inv-ret">${I.pkg} Retirar de la propiedad</button>`:'')+
       (F.id&&i.estado==='retirado'?`<div class="sep"></div><button class="btn full" data-a="inv-back">${I.refresh} Volver a ponerlo en la propiedad</button>`:'')+
       (F.id?`<div class="sep"></div><button class="btn full" data-a="inv-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
@@ -1031,10 +1037,16 @@ const ACT={
   invadd(d){startFlow('inv',{pid:d.id})},
   invitem(d){const i=get('inventario',d.id);if(i)startFlow('inv',{pid:i.propiedadId,id:i.id})},
   'inv-q'(d){const e=$('#fnom');if(e){e.value=d.n;e.focus()}},
-  'inv-save'(){const nombre=val('fnom');if(nombre.length<2)return showErr('Escribe qué artículo es.');
+  'inv-menos'(){const e=$('#fcant');if(e)e.value=Math.max(1,(parseInt(e.value)||1)-1)},
+  'inv-mas'(){const e=$('#fcant');if(e)e.value=Math.min(9999,(parseInt(e.value)||0)+1)},
+  'inv-fin'(){volverProp(F.pid)},
+  'inv-save'(d){const nombre=val('fnom');if(nombre.length<2)return showErr('Escribe qué artículo es.');
+    const cantidad=Math.max(1,Math.min(9999,parseInt(val('fcant'))||1));
     const base=F.id?get('inventario',F.id):{id:uid(),propiedadId:F.pid,estado:'en',fechaRetiro:'',motivoRetiro:''};
-    const r=Object.assign({},base,{nombre,descripcion:val('fdesc')});const pid=F.pid,nuevo=!F.id;
-    commit([{c:'inventario',r}],nuevo?nombre+' agregado al inventario':'Cambios guardados');volverProp(pid)},
+    const r=Object.assign({},base,{nombre,cantidad,descripcion:val('fdesc')});const pid=F.pid,nuevo=!F.id;
+    commit([{c:'inventario',r}],nuevo?(cantidad>1?cantidad+' × ':'')+nombre+' agregado al inventario':'Cambios guardados');
+    if(nuevo&&d&&d.more){F.agregados=(F.agregados||[]).concat(nombre);FLOWS.inv.form();const e=$('#sheet .sheet');if(e)e.scrollTop=0;return}
+    volverProp(pid)},
   'inv-ret'(){go('ret')},
   'inv-retok'(){const i=get('inventario',F.id);if(!i)return closeSheet();const r=Object.assign({},i,{estado:'retirado',fechaRetiro:today(),motivoRetiro:val('fmot')});const pid=F.pid;
     commit([{c:'inventario',r}],i.nombre+' retirado del inventario');
@@ -1289,7 +1301,7 @@ function pdet(id){
   if(isOwner()){const dpr=predioDe(p);const src=(dpr&&(dpr.predialMonto||dpr.predialFecha))?{r:dpr,c:'predios'}:((p.predialFecha||p.predialMonto)?{r:p,c:'propiedades'}:null);
     if(src)h+=`<div class="box"><h3>Predial${src.c==='predios'?' del edificio':''}</h3><div class="muted">${src.r.predialMonto?money(src.r.predialMonto)+' al año':''}${src.r.predialMonto&&src.r.predialFecha?' · ':''}${src.r.predialFecha?'vence el '+fechaCompleta(src.r.predialFecha):''}</div>${src.r.predialPagado?`<div class="small muted">Último pago: ${fechaCompleta(src.r.predialPagado)}</div>`:''}${src.r.predialFecha?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="pred-pag" data-c="${src.c}" data-id="${src.r.id}">${I.check} Ya pagué el predial</button>`:''}</div>`}
   {const inv=invDe(id,'en'),ret=invDe(id,'retirado');const rv=list('revisiones').filter(x=>x.propiedadId===id).sort((a,b)=>a.fecha<b.fecha?1:-1)[0];
-    const row=i=>`<button class="li" data-a="invitem" data-id="${i.id}"><span class="ic s-inv">${I.pkg}</span><span class="it"><b>${esc(i.nombre)}</b><span>${esc(i.estado==='retirado'?'Retirado el '+fechaLarga(i.fechaRetiro)+(i.motivoRetiro?' · '+i.motivoRetiro:''):(i.descripcion||'Sin descripción'))}</span></span><span class="chev">${I.back}</span></button>`;
+    const row=i=>`<button class="li" data-a="invitem" data-id="${i.id}"><span class="ic s-inv">${I.pkg}</span><span class="it"><b>${esc(i.nombre)}</b><span>${esc(i.estado==='retirado'?'Retirado el '+fechaLarga(i.fechaRetiro)+(i.motivoRetiro?' · '+i.motivoRetiro:''):(i.descripcion||'Sin descripción'))}</span></span><span class="qtyb">×${qty(i)}</span><span class="chev">${I.back}</span></button>`;
     h+=`<div class="box"><div class="ph"><h3>Inventario</h3><span class="chip off">${inv.length} artículo${inv.length===1?'':'s'}</span></div>`+(inv.length?inv.map(row).join(''):'<p class="muted">Aún no hay nada anotado. Agrega la TV, la cama, el closet…</p>')+`<div class="sep" style="height:10px"></div><button class="btn full" data-a="invadd" data-id="${id}">${I.plus} Agregar artículo</button>`+(ret.length?`<details class="more"><summary class="btn sm">Retirados (${ret.length})</summary>${ret.map(row).join('')}</details>`:'')+(rv?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="edit" data-c="revisiones" data-id="${rv.id}">${I.list} Última revisión al salir un inquilino · ${fechaLarga(rv.fecha)}</button>`:'')+'</div>'}
   {const mts=list('mantenimientos').filter(m=>mantProps(m).some(x=>x.id===id)).sort((a,b)=>a.fecha<b.fecha?1:-1).slice(0,3);
     h+=`<div class="box"><div class="ph"><h3>Mantenimientos</h3></div>`+(mts.length?mts.map(m=>`<button class="li" data-a="mdet" data-id="${m.id}"><span class="ic s-mant">${I.wrench}</span><span class="it"><b>${esc(m.motivo)}</b><span>${fechaLarga(m.fecha)} · ${m.estado==='hecho'?'terminado':'pendiente'}</span></span><span class="amt">${m.costo!==''&&m.costo!=null?money(m.costo):''}</span></button>`).join(''):'<p class="muted">Sin mantenimientos registrados.</p>')+`<div class="sep" style="height:10px"></div><button class="btn full" data-a="mant-p" data-id="${id}">${I.plus} Registrar mantenimiento</button></div>`}
