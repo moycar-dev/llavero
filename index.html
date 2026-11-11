@@ -335,7 +335,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.5.6', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.7', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -1226,7 +1226,7 @@ const VIEWS={
     let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
     h+=`<button class="btn pri full" data-a="newprop" style="margin-bottom:14px">${I.plus} Agregar propiedad</button>`;
     if(solos.length)h+='<div class="plist">'+solos.map(card).join('')+'</div>';
-    if(!window.OPENB){window.OPENB=new Set(predios.length===1?[predios[0].id]:[])}
+    if(!window.OPENB){window.OPENB=new Set()}
     const urow=p=>{const t=inqDe(p.id);const st=t?estadoRenta(t):null;
       return`<button class="urow" data-a="pdet" data-id="${p.id}"><span class="un">${esc(p.interior||p.nombre)}</span><span class="ut"><b>${t?esc(t.nombre):'Desocupado'}</b><span>${t?money(t.renta)+' al mes':'Renta sugerida '+money(p.renta)}${p.notas?' · '+esc(p.notas):''}</span></span>${t?chipRenta(st):'<span class="chip off">Libre</span>'}</button>`};
     for(const d of predios){const us=ps.filter(p=>p.predioId===d.id).sort((a,b)=>String(a.interior).localeCompare(String(b.interior),'es',{numeric:true}));const open=OPENB.has(d.id);const oc=us.filter(p=>inqDe(p.id)).length;
