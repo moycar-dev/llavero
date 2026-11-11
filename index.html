@@ -27,7 +27,7 @@
   --verde:#2E7D4F; --verde-l:#E3F2E9;
   --rojo:#B3261E; --rojo-l:#FBE6E4;
   --r:20px;
-  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif",serif;
+  --serif:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;overflow:hidden}
@@ -289,6 +289,21 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 .btn[data-a="m-save"]{background:var(--coral);border-color:var(--coral);color:#fff}
 .btn[data-a="a-save"]{background:var(--teal);border-color:var(--teal);color:#fff}
 .filters .btn.on{background:var(--teal);border-color:var(--teal)}
+/* Edificios desplegables */
+.bld{background:var(--soft);border-radius:var(--r);margin:0 0 12px;overflow:hidden}
+.bhead{display:flex;align-items:center;gap:10px;width:100%;padding:16px 18px;background:none;border:0;text-align:left}
+.bn{flex:1;font-size:21px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bhead .cnt{flex:none;font-size:15px;color:var(--muted)}
+.bhead .chev{flex:none;display:flex;transform:rotate(-90deg);transition:transform .15s;color:var(--muted)}
+.bld.open .bhead .chev{transform:rotate(90deg)}
+.bbody{padding:0 14px 14px}
+.ulist{display:flex;flex-direction:column;gap:8px}
+.urow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.urow:active{background:var(--azul-l)}
+.un{flex:none;min-width:52px;height:52px;padding:0 8px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:var(--teal-l);color:var(--teal);font-size:22px;font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.ut{flex:1;min-width:0;display:flex;flex-direction:column}
+.ut b{font-size:18px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ut span{font-size:15px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -307,7 +322,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.5.4', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.5', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -947,6 +962,7 @@ const ACT={
   editpredio(d){startFlow('predio',{id:d.id})},
   addunit(d){startFlow('prop',{predioId:d.id})},
   'pd-save'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');const x=isOwner()?leerPredial():{};if(x.err)return showErr(x.err);const r=Object.assign({},get('predios',F.id),{nombre,direccion:val('fedir'),incluidos:Object.keys(SERV).filter(s=>F.inc.includes(s)).join(',')},x);closeSheet();commit([{c:'predios',r}],'Edificio guardado')},
+  bld(d,b){if(OPENB.has(d.id))OPENB.delete(d.id);else OPENB.add(d.id);const w=b.closest('.bld');const o=OPENB.has(d.id);w.classList.toggle('open',o);w.querySelector('.bbody').hidden=!o;b.setAttribute('aria-expanded',o)},
   'pr-modo'(d){F.modo=d.m;go(d.m==='solo'?'form':'edif1')},
   'ed-1'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');F.e=Object.assign(F.e||{},{nombre,direccion:val('fedir')});go('edif2')},
   'ed-addrow'(){const c=document.getElementById('drows');if(!c)return;if(c.querySelectorAll('.drow').length>=60)return showErr('Máximo 60 por edificio.');c.insertAdjacentHTML('beforeend',drow('',''));const x=c.querySelectorAll('.dn');x[x.length-1].focus()},
@@ -1197,10 +1213,14 @@ const VIEWS={
     let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
     h+=`<button class="btn pri full" data-a="newprop" style="margin-bottom:14px">${I.plus} Agregar propiedad</button>`;
     if(solos.length)h+='<div class="plist">'+solos.map(card).join('')+'</div>';
-    for(const d of predios){const us=ps.filter(p=>p.predioId===d.id);
-      h+=`<div class="sh" style="margin-top:20px"><h2 style="font-size:21px">${esc(d.nombre)}</h2><span class="cnt">${us.length} depto${us.length===1?'':'s'}</span></div>`;
-      h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button>${incl(d).length?`<button class="btn sm" data-a="gasto" data-id="${d.id}">${I.bolt} Recibo del edificio</button>`:''}</div>${(isOwner()?chipPredial(d):'')+chipIncl(d)?`<div class="ps" style="margin:-2px 0 12px">${(isOwner()?chipPredial(d):'')+chipIncl(d)}</div>`:''}`;
-      h+='<div class="plist">'+us.sort((a,b)=>String(a.interior).localeCompare(String(b.interior),'es',{numeric:true})).map(card).join('')+'</div>'}
+    if(!window.OPENB){window.OPENB=new Set(predios.length===1?[predios[0].id]:[])}
+    const urow=p=>{const t=inqDe(p.id);const st=t?estadoRenta(t):null;
+      return`<button class="urow" data-a="pdet" data-id="${p.id}"><span class="un">${esc(p.interior||p.nombre)}</span><span class="ut"><b>${t?esc(t.nombre):'Desocupado'}</b><span>${t?money(t.renta)+' al mes':'Renta sugerida '+money(p.renta)}${p.notas?' · '+esc(p.notas):''}</span></span>${t?chipRenta(st):'<span class="chip off">Libre</span>'}</button>`};
+    for(const d of predios){const us=ps.filter(p=>p.predioId===d.id).sort((a,b)=>String(a.interior).localeCompare(String(b.interior),'es',{numeric:true}));const open=OPENB.has(d.id);const oc=us.filter(p=>inqDe(p.id)).length;
+      h+=`<div class="bld${open?' open':''}"><button class="bhead" data-a="bld" data-id="${d.id}" aria-expanded="${open}"><span class="bn">${esc(d.nombre)}</span><span class="cnt">${us.length} depto${us.length===1?'':'s'} · ${oc} rentado${oc===1?'':'s'}</span><span class="chev">${I.back}</span></button><div class="bbody"${open?'':' hidden'}>`;
+      h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button>${incl(d).length?`<button class="btn sm" data-a="gasto" data-id="${d.id}">${I.bolt} Recibo del edificio</button>`:''}</div>`;
+      const ch=(isOwner()?chipPredial(d):'')+chipIncl(d);if(ch)h+=`<div class="ps" style="margin:-2px 0 12px">${ch}</div>`;
+      h+='<div class="ulist">'+(us.length?us.map(urow).join(''):'<p class="muted small">Aún no hay departamentos.</p>')+'</div></div></div>'}
     if(!ps.length)h+='<div class="card empty"><p class="muted">Aún no hay propiedades.</p></div>';
     return h+'</section>';
   },
