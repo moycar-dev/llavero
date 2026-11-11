@@ -317,6 +317,11 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 .ut b{font-size:19px}
 .pcard{border-left:6px solid var(--oro);padding:22px 20px 22px 18px}
 .pcard .pn{font-size:25px;font-weight:800}
+/* Barra inferior fija abajo del teléfono */
+html,body{height:100%}
+body{height:100vh;height:100dvh}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;box-shadow:0 -1px 0 var(--line)}
+main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
@@ -335,7 +340,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.5.7', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.8', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
