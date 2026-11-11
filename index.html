@@ -288,11 +288,11 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.4.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
-  predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas'],
-  propiedades:['nombre','tipo','direccion','renta','diaPago','servicios','notas','predioId','interior','predialMonto','predialFecha','predialClave','predialPagado'],
+  predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
+  propiedades:['nombre','tipo','direccion','renta','diaPago','servicios','notas','predioId','interior','predialMonto','predialFecha','predialClave','predialPagado','incluidos'],
   inquilinos:['propiedadId','nombre','telefono','renta','diaPago','fechaInicio','fechaFin','fechaBaja','estado','notas'],
   gastos:['propiedadId','servicio','mes','monto','nota'],
   pagos:['inquilinoId','propiedadId','mes','fecha','monto','nota'],
@@ -424,11 +424,14 @@ function get(c,id){const r=S.data[c][id];return r&&!Number(r.eliminado)?r:null}
 function prop(id){return get('propiedades',id)}
 function activos(){return list('inquilinos').filter(t=>t.estado==='activo'&&prop(t.propiedadId))}
 function inqDe(pid){return list('inquilinos').find(t=>t.propiedadId===pid&&t.estado==='activo')}
-function hasServ(p,s){return String(p.servicios||'luz,agua,gas').split(',').includes(s)}
+/* Servicios incluidos en la renta (los paga el edificio o la casa): no se registran recibos por departamento */
+function incl(p){const d=p&&p.predioId?get('predios',p.predioId):null;return[...new Set([String((p&&p.incluidos)||'').split(','),String((d&&d.incluidos)||'').split(',')].flat().filter(x=>SERV[x]))]}
+function hasServ(p,s){return String(p.servicios||'luz,agua,gas').split(',').includes(s)&&!incl(p).includes(s)}
+function chipIncl(x){const a=incl(x);return a.length?`<span class="chip ok">Incluye ${a.map(s=>SERV[s].n.toLowerCase()).join(', ')}</span>`:''}
 function isOwner(){return DEMO||!S.conn||S.rol==='propietario'}
-/* WhatsApp a inquilinos: solo el propietario */
-function canWA(){return isOwner()}
-function canEdit(c,r){if(isOwner())return true;return['gastos','pagos','avisos','mantenimientos','inventario'].includes(c)&&(!r||r.por===S.device||!r.por)}
+/* El capturista puede todo salvo mandar mensajes de dinero de renta */
+function canWA(){return isOwner()}  /* solo mensajes de dinero de renta (recordatorio y recibo) */
+function canEdit(c,r){return true}
 function cfg(){const c=S.config||{};return{negocio:c.negocio||'',propietario:c.propietario||'',telPropietario:c.telPropietario||'',plantillas:Object.assign({},DEF_PLANT,c.plantillas||{}),v:c.v||1,updatedAt:c.updatedAt||0}}
 function propsOrd(){return list('propiedades').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}))}
 
@@ -591,7 +594,8 @@ function mesOptions(sel,from,to){let h='';for(let i=from;i<=to;i++){const m=addM
 function diaOptions(sel){let h='';for(let d=1;d<=31;d++)h+=`<option value="${d}"${d==sel?' selected':''}>${d}</option>`;return h}
 function moneyInp(v){return`<div class="money"><span>$</span><input id="fmonto" inputmode="decimal" autocomplete="off" value="${v===''||v==null?'':esc(v)}" placeholder="0" aria-label="Monto" data-focus></div>`}
 function servBadge(s){const sty={gas:'background:var(--lav-l);color:var(--lav)',agua:'background:var(--cielo-l);color:var(--cielo)',internet:'background:#E3F2EF;color:#1F6F63'}[s]||'';return`<span class="chip ${s==='luz'?'warn':'info'}" style="${sty}">${I[SERV[s].i]} ${SERV[s].n}</span>`}
-function servSeg(){return`<div class="seg sv">${Object.keys(SERV).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div><p class="hint">Internet: actívalo solo si tú pagas ese recibo. Si el contrato va por aparte, déjalo apagado.</p>`}
+function incSeg(){return`<div class="seg sv">${Object.keys(SERV).map(s=>`<button class="btn sm${F.inc.includes(s)?' on':''}" data-a="pr-inc" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div>`}
+function servSeg(){return`<div class="seg sv">${Object.keys(SERV).filter(s=>!(F.incH||[]).includes(s)).map(s=>`<button class="btn sm${F.serv.includes(s)?' on':''}" data-a="pr-serv" data-s="${s}">${I[SERV[s].i]} ${SERV[s].n}</button>`).join('')}</div><p class="hint">Internet: actívalo solo si tú pagas ese recibo. Si el contrato va por aparte, déjalo apagado.</p>`}
 
 const FLOWS={};
 /* Gasto */
@@ -707,8 +711,9 @@ function leerPredial(){const m=val('fpre'),f=val('fpref');const n=m?num(m):0;if(
 function parseInts(t){const a=[...new Set(String(t).split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean))];return a}
 FLOWS.prop={
   start(){
-    if(F.id){const p=get('propiedades',F.id);F.tipo=p.tipo;F.serv=String(p.servicios).split(',').filter(Boolean);F.step='form';this.form();return}
-    F.tipo='Departamento';F.serv=['luz','agua','gas'];
+    const hered=pid=>{const d=pid?get('predios',pid):null;return String((d&&d.incluidos)||'').split(',').filter(x=>SERV[x])};
+    if(F.id){const p=get('propiedades',F.id);F.tipo=p.tipo;F.incH=hered(p.predioId);F.inc=String(p.incluidos||'').split(',').filter(x=>SERV[x]);F.serv=String(p.servicios).split(',').filter(x=>x&&!F.incH.includes(x)&&!F.inc.includes(x));F.step='form';this.form();return}
+    F.incH=hered(F.predioId);F.inc=[];F.tipo='Departamento';F.serv=['luz','agua','gas'].filter(x=>!F.incH.includes(x));
     if(F.predioId){F.step='form';this.form();return}
     F.step='tipo';this.tipo();
   },
@@ -724,7 +729,8 @@ FLOWS.prop={
     h+=`<label class="f">Tipo</label><div class="seg">${TIPOS.slice(0,3).map(t=>`<button class="btn sm${F.tipo===t?' on':''}" data-a="pr-tipo" data-t="${t}">${t}</button>`).join('')}</div>
       <div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(p.renta||'')}"></div>
       <div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(p.diaPago||1)}</select></div></div>
-      <label class="f">¿Qué servicios pagas tú?</label>${servSeg()}`;
+      ${pid?(F.incH&&F.incH.length?`<p class="hint">Incluido en la renta por el edificio: ${F.incH.map(s=>SERV[s].n.toLowerCase()).join(', ')}. No se registra por departamento.</p>`:''):`<label class="f">Servicios incluidos en la renta</label><p class="hint">Los pagas tú y ya van en la renta. No se registran recibos.</p>${incSeg()}`}
+      <label class="f">${pid?'Servicios que paga el inquilino':'Servicios que paga el inquilino y se registran'}</label>${servSeg()}`;
     if(isOwner())h+=compartido?`<p class="hint">El predial de este edificio se maneja desde el edificio.</p>`:predialInputs(p);
     h+=`<div class="err" id="ferr" hidden></div>
       <details class="more"><summary class="btn sm">${I.edit} Dirección o nota</summary>
@@ -735,15 +741,15 @@ FLOWS.prop={
   },
   edif1(){const e=F.e||{};sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" placeholder="Ej. Edificio Madero" value="${esc(e.nombre||'')}" data-focus><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(e.direccion||'')}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-1">Continuar</button>`)},
   edif2(){sheet(shead('¿Cuáles son los departamentos?',`<span class="chip off">${esc(F.e.nombre)}</span>`)+`<p class="muted">Escribe el número o nombre de cada uno, separados por coma o en renglones.</p><textarea class="inp" id="fints" placeholder="1, 2, 3, 4" data-focus>${esc(F.ints||'')}</textarea><p class="hint">Ejemplos: 1, 2, 3 · 101, 102, 201 · A, B, C</p><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-2">Continuar</button>`)},
-  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">¿Qué servicios pagas tú?</label>${servSeg()}<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
+  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">Servicios incluidos en la renta</label><p class="hint">Los paga el edificio. No se registran recibos por departamento.</p>${incSeg()}<label class="f">Servicios que paga cada inquilino</label>${servSeg()}<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
   edif4(){sheet(shead('¿Cómo se paga el predial?')+`<div class="opts"><button class="opt" data-a="pr-pmodo" data-m="edificio"><span class="ic s-inq">${I.home}</span><span class="it">Uno solo por todo el edificio<span>Un solo pago al año</span></span></button><button class="opt" data-a="pr-pmodo" data-m="unidad"><span class="ic s-inq">${I.key}</span><span class="it">Uno por cada departamento<span>Cada uno tiene su cuenta</span></span></button><button class="opt" data-a="pr-pmodo" data-m="no"><span class="ic s-inq">${I.clock}</span><span class="it">Todavía no lo sé<span>Lo agrego después</span></span></button></div>`)},
   pred(){sheet(shead(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada departamento')+(F.pmodo==='unidad'?'<p class="muted">Pongo el mismo monto y fecha a todos. Después puedes ajustar cada uno.</p>':'')+predialInputs(F.pr||{})+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-pred">Continuar</button>`)},
   conf(){const e=F.e,pr=F.pr||{};const pt=F.pmodo==='no'||!pr.predialFecha&&!pr.predialMonto?'Sin predial por ahora':(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada uno')+': '+(pr.predialMonto?money(pr.predialMonto)+' al año':'')+(pr.predialFecha?' · vence el '+fechaCompleta(pr.predialFecha):'');
     sheet(shead('¿Creamos '+esc(e.nombre)+'?')+`<div class="box"><h3>${F.list.length} departamento${F.list.length>1?'s':''}</h3><div class="ps">${F.list.map(x=>`<span class="chip info">${esc(x)}</span>`).join('')}</div><div class="sep" style="height:10px"></div><div class="muted">${e.renta?money(e.renta)+' al mes · ':''}paga el día ${e.diaPago}</div><div class="muted">${esc(pt)}</div></div><button class="btn pri big full" data-a="ed-save">${I.check} Sí, crear</button>`)}
 };
 FLOWS.predio={
-  start(){F.step='form';this.form()},
-  form(){const d=get('predios',F.id);sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" value="${esc(d.nombre)}"><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(d.direccion)}">`+predialInputs(d)+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="pd-save">${I.check} Guardar</button>`)}
+  start(){const d=get('predios',F.id);F.inc=String((d&&d.incluidos)||'').split(',').filter(x=>SERV[x]);F.step='form';this.form()},
+  form(){const d=get('predios',F.id);sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" value="${esc(d.nombre)}"><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(d.direccion)}"><label class="f">Servicios incluidos en la renta</label><p class="hint">Los paga el edificio. No se registran recibos en cada departamento.</p>${incSeg()}`+(isOwner()?predialInputs(d):'')+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="pd-save">${I.check} Guardar</button>`)}
 };
 FLOWS.renov={
   start(){F.step='dur';this.dur()},
@@ -792,16 +798,16 @@ FLOWS.mant={
   det(){
     const m=get('mantenimientos',F.id);if(!m)return closeSheet();
     const ts=mantInq(m),av=String(m.avisados||'').split(','),hecho=m.estado==='hecho',sv=mantSv(m);
-    const fila=(t,fin)=>{const ya=!fin&&av.includes(t.id);return`<div class="tn"><span class="it"><b>${esc(t.nombre)}</b><span>${esc((prop(t.propiedadId)||{}).nombre||'')}${ya?' · ya avisado':''}</span></span>${canWA()?`<button class="btn sm wa" data-a="${fin?'m-wafin':'m-wa'}" data-id="${t.id}">${I.chat} ${ya?'Reenviar':'Avisar'}</button>`:''}</div>`};
+    const fila=(t,fin)=>{const ya=!fin&&av.includes(t.id);return`<div class="tn"><span class="it"><b>${esc(t.nombre)}</b><span>${esc((prop(t.propiedadId)||{}).nombre||'')}${ya?' · ya avisado':''}</span></span><button class="btn sm wa" data-a="${fin?'m-wafin':'m-wa'}" data-id="${t.id}">${I.chat} ${ya?'Reenviar':'Avisar'}</button></div>`};
     const nAv=ts.filter(t=>av.includes(t.id)).length;
-    const paso=!canWA()?(hecho?['okk',I.check,'Terminado.']:['',1,'Cuando terminen el trabajo, toca «Ya se terminó». El propietario avisa a los inquilinos.']):hecho?['okk',I.check,'Terminado. Si quieres, avisa a los inquilinos que ya quedó.']:!ts.length?['',2,'No hay inquilinos que avisar. Cuando terminen, toca «Ya se terminó».']:nAv<ts.length?['',1,'Siguiente paso: avisa a los inquilinos'+(ts.length>1?' ('+nAv+' de '+ts.length+' avisados).':'.')]:['okk',2,'Todos avisados. Cuando terminen el trabajo, toca «Ya se terminó».'];
+    const paso=hecho?['okk',I.check,'Terminado. Si quieres, avisa a los inquilinos que ya quedó.']:!ts.length?['',2,'No hay inquilinos que avisar. Cuando terminen, toca «Ya se terminó».']:nAv<ts.length?['',1,'Siguiente paso: avisa a los inquilinos'+(ts.length>1?' ('+nAv+' de '+ts.length+' avisados).':'.')]:['okk',2,'Todos avisados. Cuando terminen el trabajo, toca «Ya se terminó».'];
     let h=shead(esc(m.motivo),`<span class="chip off">${esc(mantNombre(m))}</span><span class="chip ${hecho?'ok':'warn'}">${hecho?'Terminado':'Pendiente'}</span>`)+`<div class="next ${paso[0]}"><span class="n">${paso[1]}</span><span>${paso[2]}</span></div>`;
     h+=`<div class="box"><div class="muted">${fechaLarga(m.fecha)} ${String(m.fecha).slice(0,4)}${m.horario?' · '+esc(m.horario):''}</div><div class="ps" style="margin-top:8px">${sv.length?sv.map(servBadge).join(''):'<span class="chip off">No se corta ningún servicio</span>'}</div>${m.costo!==''&&m.costo!=null?`<div class="sep" style="height:10px"></div><div class="muted">Costo</div><div class="kpi" style="font-size:28px">${money(m.costo)}</div>`:''}${m.nota?`<p class="muted small">${esc(m.nota)}</p>`:''}</div>`;
-    if(m.proveedor||m.telProveedor)h+=`<div class="box"><h3>Quién hizo el servicio</h3><div class="muted"><b>${esc(m.proveedor||'Sin nombre')}</b>${m.telProveedor?' · '+esc(m.telProveedor):''}</div>${m.telProveedor?`<div class="sep" style="height:10px"></div><div class="row"><a class="btn sm" href="tel:+52${esc(m.telProveedor)}">Llamar</a>${canWA()?`<a class="btn sm wa" href="${waUrl('52'+m.telProveedor,'')}" target="_blank" rel="noopener">${I.chat} WhatsApp</a>`:''}</div>`:'<p class="hint">Falta su teléfono. Agrégalo con «Corregir».</p>'}</div>`;
-    if(canWA())h+=`<div class="box"><h3>Avisar a los inquilinos</h3>`+(ts.length?`<p class="muted small">Se abre WhatsApp con el mensaje listo; tú solo das enviar, uno por uno.</p><div class="waprev">${esc(mensajeMant(ts[0],m,false))}</div>`+ts.map(t=>fila(t,false)).join(''):'<p class="muted">Ahora no hay inquilinos en este lugar.</p>')+'</div>';
-    if(canWA()&&hecho&&ts.length)h+=`<div class="box"><h3>Avisar que ya terminó</h3>`+ts.map(t=>fila(t,true)).join('')+'</div>';
+    if(m.proveedor||m.telProveedor)h+=`<div class="box"><h3>Quién hizo el servicio</h3><div class="muted"><b>${esc(m.proveedor||'Sin nombre')}</b>${m.telProveedor?' · '+esc(m.telProveedor):''}</div>${m.telProveedor?`<div class="sep" style="height:10px"></div><div class="row"><a class="btn sm" href="tel:+52${esc(m.telProveedor)}">Llamar</a><a class="btn sm wa" href="${waUrl('52'+m.telProveedor,'')}" target="_blank" rel="noopener">${I.chat} WhatsApp</a></div>`:'<p class="hint">Falta su teléfono. Agrégalo con «Corregir».</p>'}</div>`;
+    h+=`<div class="box"><h3>Avisar a los inquilinos</h3>`+(ts.length?`<p class="muted small">Se abre WhatsApp con el mensaje listo; tú solo das enviar, uno por uno.</p><div class="waprev">${esc(mensajeMant(ts[0],m,false))}</div>`+ts.map(t=>fila(t,false)).join(''):'<p class="muted">Ahora no hay inquilinos en este lugar.</p>')+'</div>';
+    if(hecho&&ts.length)h+=`<div class="box"><h3>Avisar que ya terminó</h3>`+ts.map(t=>fila(t,true)).join('')+'</div>';
     if(!hecho)h+=`<button class="btn pri big full" data-a="m-done">${I.check} Ya se terminó</button><div class="sep"></div>`;
-    h+=`<div class="row"><button class="btn" data-a="m-edit">${I.edit} Corregir</button>${isOwner()?`<button class="btn" data-a="m-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''}</div>`;
+    h+=`<div class="row"><button class="btn" data-a="m-edit">${I.edit} Corregir</button><button class="btn" data-a="m-del" style="color:var(--rojo)">${I.trash} Borrar</button></div>`;
     sheet(h);
   },
   del(){sheet(shead('¿Borrar este mantenimiento?')+'<p class="muted">Se quita de la app en todos los teléfonos. En la hoja queda marcado como borrado.</p><button class="btn danger big full" data-a="m-delok">'+I.trash+' Sí, borrar</button>')}
@@ -821,7 +827,7 @@ FLOWS.inv={
       <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="inv-save">${I.check} Guardar</button>`+
       (F.id&&i.estado==='en'?`<div class="sep"></div><button class="btn full" data-a="inv-ret">${I.pkg} Retirar de la propiedad</button>`:'')+
       (F.id&&i.estado==='retirado'?`<div class="sep"></div><button class="btn full" data-a="inv-back">${I.refresh} Volver a ponerlo en la propiedad</button>`:'')+
-      (F.id&&isOwner()?`<div class="sep"></div><button class="btn full" data-a="inv-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
+      (F.id?`<div class="sep"></div><button class="btn full" data-a="inv-del" style="color:var(--rojo)">${I.trash} Borrar</button>`:''));
   },
   ret(){
     const i=get('inventario',F.id),p=prop(F.pid)||{};
@@ -909,7 +915,7 @@ const ACT={
   'pred-pag'(d){const r=get(d.c,d.id);if(!r)return;const nueva=addYear(r.predialFecha);closeSheet();commit([{c:d.c,r:Object.assign({},r,{predialFecha:nueva,predialPagado:today()})}],'Predial anotado. Próximo vencimiento: '+fechaCompleta(nueva))},
   editpredio(d){startFlow('predio',{id:d.id})},
   addunit(d){startFlow('prop',{predioId:d.id})},
-  'pd-save'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');const x=leerPredial();if(x.err)return showErr(x.err);const r=Object.assign({},get('predios',F.id),{nombre,direccion:val('fedir')},x);closeSheet();commit([{c:'predios',r}],'Edificio guardado')},
+  'pd-save'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');const x=isOwner()?leerPredial():{};if(x.err)return showErr(x.err);const r=Object.assign({},get('predios',F.id),{nombre,direccion:val('fedir'),incluidos:Object.keys(SERV).filter(s=>F.inc.includes(s)).join(',')},x);closeSheet();commit([{c:'predios',r}],'Edificio guardado')},
   'pr-modo'(d){F.modo=d.m;go(d.m==='solo'?'form':'edif1')},
   'ed-1'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');F.e=Object.assign(F.e||{},{nombre,direccion:val('fedir')});go('edif2')},
   'ed-2'(){const a=parseInts(val('fints'));if(!a.length)return showErr('Escribe al menos un departamento.');if(a.length>60)return showErr('Son demasiados; máximo 60 por edificio.');if(a.some(x=>x.length>20))return showErr('Cada nombre debe tener 20 letras o menos.');F.ints=val('fints');F.list=a;go('edif3')},
@@ -918,9 +924,9 @@ const ACT={
   'ed-pred'(){const x=leerPredial();if(x.err)return showErr(x.err);F.pr=x;go('conf')},
   'ed-save'(){const e=F.e,pr=F.pr||{},ops=[],did=uid();
     const dp=F.pmodo==='edificio'?pr:{},up=F.pmodo==='unidad'?pr:{};
-    ops.push({c:'predios',r:{id:did,nombre:e.nombre,direccion:e.direccion||'',predialMonto:dp.predialMonto||'',predialFecha:dp.predialFecha||'',predialClave:dp.predialClave||'',predialPagado:'',notas:''}});
-    const sv=Object.keys(SERV).filter(s=>F.serv.includes(s)).join(',');
-    for(const it of F.list)ops.push({c:'propiedades',r:{id:uid(),nombre:e.nombre+' · '+it,tipo:'Departamento',direccion:'',renta:e.renta||0,diaPago:e.diaPago,servicios:sv,notas:'',predioId:did,interior:it,predialMonto:up.predialMonto||'',predialFecha:up.predialFecha||'',predialClave:up.predialClave||'',predialPagado:''}});
+    ops.push({c:'predios',r:{id:did,nombre:e.nombre,direccion:e.direccion||'',predialMonto:dp.predialMonto||'',predialFecha:dp.predialFecha||'',predialClave:dp.predialClave||'',predialPagado:'',notas:'',incluidos:Object.keys(SERV).filter(s=>F.inc.includes(s)).join(',')}});
+    const sv=Object.keys(SERV).filter(s=>F.serv.includes(s)&&!F.inc.includes(s)).join(',');
+    for(const it of F.list)ops.push({c:'propiedades',r:{id:uid(),nombre:e.nombre+' · '+it,tipo:'Departamento',direccion:'',renta:e.renta||0,diaPago:e.diaPago,servicios:sv,notas:'',predioId:did,interior:it,predialMonto:up.predialMonto||'',predialFecha:up.predialFecha||'',predialClave:up.predialClave||'',predialPagado:'',incluidos:''}});
     const n=F.list.length;closeSheet();commit(ops,'Edificio guardado con '+n+' departamento'+(n>1?'s':''))},
   mant(){startFlow('mant',{})},
   'mant-p'(d){startFlow('mant',{destino:'p:'+d.id})},
@@ -938,12 +944,12 @@ const ACT={
     const nuevo=!F.id;commit([{c:'mantenimientos',r}],nuevo?'Mantenimiento guardado':'Cambios guardados');
     F={flow:'mant',hist:[],id:r.id,step:'det',destino:r.destino,msv:mantSv(r)};FLOWS.mant.det()},
   'm-edit'(){F.hist=['det'];F.step='form';FLOWS.mant.form()},
-  'm-wa'(d){if(!canWA())return;const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
+  'm-wa'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
     if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
     window.open(waUrl(tel,mensajeMant(t,m,false)),'_blank','noopener');
     const av=String(m.avisados||'').split(',').filter(Boolean);
     if(!av.includes(t.id)){av.push(t.id);put('mantenimientos',Object.assign({},m,{avisados:av.join(',')}));afterChange();redet()}},
-  'm-wafin'(d){if(!canWA())return;const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
+  'm-wafin'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
     if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
     window.open(waUrl(tel,mensajeMant(t,m,true)),'_blank','noopener')},
   'm-done'(){const m=get('mantenimientos',F.id);if(!m)return;put('mantenimientos',Object.assign({},m,{estado:'hecho',restablecido:today()}));afterChange();toast('Marcado como terminado');redet()},
@@ -973,7 +979,8 @@ const ACT={
     ops.push({c:'inquilinos',r:Object.assign({},t,{estado:'baja',fechaBaja:f})});
     closeSheet();commit(ops,firstName(t.nombre)+' quedó dado de baja'+(bad?' · '+bad+' artículo'+(bad>1?'s':'')+' con observaciones':''))},
   'pr-tipo'(d){F.tipo=d.t;document.querySelectorAll('[data-a="pr-tipo"]').forEach(b=>b.classList.toggle('on',b.dataset.t===d.t))},
-  'pr-serv'(d,b){const i=F.serv.indexOf(d.s);if(i>=0)F.serv.splice(i,1);else F.serv.push(d.s);b.classList.toggle('on',i<0)},
+  'pr-serv'(d,b){const i=F.serv.indexOf(d.s);if(i>=0)F.serv.splice(i,1);else{F.serv.push(d.s);const j=(F.inc||[]).indexOf(d.s);if(j>=0){F.inc.splice(j,1);const o=document.querySelector('[data-a="pr-inc"][data-s="'+d.s+'"]');if(o)o.classList.remove('on')}}b.classList.toggle('on',i<0)},
+  'pr-inc'(d,b){const i=F.inc.indexOf(d.s);if(i>=0)F.inc.splice(i,1);else{F.inc.push(d.s);const j=(F.serv||[]).indexOf(d.s);if(j>=0){F.serv.splice(j,1);const o=document.querySelector('[data-a="pr-serv"][data-s="'+d.s+'"]');if(o)o.classList.remove('on')}}b.classList.toggle('on',i<0)},
   'pr-save'(){
     const base=F.id?get('propiedades',F.id):{id:uid()};
     const pid=F.predioId||base.predioId||'';let nombre=val('fnom');const inter=val('fint');
@@ -982,7 +989,7 @@ const ACT={
     const renta=num(val('fren')||'0');if(!(renta>=0))return showErr('La renta no es válida.');
     let pr={predialMonto:base.predialMonto||'',predialFecha:base.predialFecha||'',predialClave:base.predialClave||'',predialPagado:base.predialPagado||''};
     if(isOwner()&&document.getElementById('fpre')){const x=leerPredial();if(x.err)return showErr(x.err);pr=Object.assign(pr,x)}
-    const r=Object.assign({},base,{nombre,tipo:F.tipo,renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),servicios:Object.keys(SERV).filter(s=>F.serv.includes(s)).join(','),direccion:val('fdir'),notas:val('fnota'),predioId:pid,interior:inter||base.interior||''},pr);
+    const r=Object.assign({},base,{nombre,tipo:F.tipo,renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),servicios:Object.keys(SERV).filter(s=>F.serv.includes(s)&&!F.inc.includes(s)&&!(F.incH||[]).includes(s)).join(','),incluidos:pid?'':Object.keys(SERV).filter(s=>F.inc.includes(s)).join(','),direccion:val('fdir'),notas:val('fnota'),predioId:pid,interior:inter||base.interior||''},pr);
     closeSheet();commit([{c:'propiedades',r}],'Propiedad guardada')},
   pdet(d){F={flow:'pdet',hist:[]};pdet(d.id)},
   wa(d){const t=get('inquilinos',d.id);if(t)abrirWA(t,d.e||null,!!d.e)},
@@ -1082,8 +1089,8 @@ function render(){
 function tuDia(){
   const items=[],M=curMonth(),hoy=today();
   for(const t of (canWA()?activos():[])){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
+  for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60)items.push({k:'contrato',t,dias,done:false})}
   if(isOwner()){
-    for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60)items.push({k:'contrato',t,dias,done:false})}
     const addP=(c,r)=>{if(!r.predialFecha)return;const dias=dayDiff(hoy,r.predialFecha);if(dias<=30)items.push({k:'predial',c,r,n:r.nombre,dias,done:false})};
     list('predios').forEach(r=>addP('predios',r));list('propiedades').forEach(r=>addP('propiedades',r));
   }
@@ -1133,7 +1140,7 @@ const VIEWS={
     let h='';
     const props=list('propiedades');
     if(!props.length){
-      h+=`<section class="card empty"><div class="ic">${I.key}</div><h2>Empecemos con tus propiedades</h2><p class="muted">Agrega cada casa o departamento que rentas. Después registras a tus inquilinos y sus recibos.</p>${isOwner()?`<button class="btn pri big full" data-a="newprop">${I.plus} Agregar propiedad</button>`:'<p>Pide al propietario que agregue las propiedades.</p>'}</section>`;
+      h+=`<section class="card empty"><div class="ic">${I.key}</div><h2>Empecemos con tus propiedades</h2><p class="muted">Agrega cada casa o departamento que rentas. Después registras a tus inquilinos y sus recibos.</p><button class="btn pri big full" data-a="newprop">${I.plus} Agregar propiedad</button></section>`;
       return h;
     }
     const it=tuDia(),pend=it.filter(x=>!x.done).length;
@@ -1141,8 +1148,8 @@ const VIEWS={
     h+=`<section><div class="sh"><h2>¿Qué quieres registrar?</h2></div><div class="acts">
       <button class="act a-gasto" data-a="gasto"><span class="ic">${I.bolt}</span><span>Recibo</span></button>
       <button class="act a-pago" data-a="pago"><span class="ic">${I.cash}</span><span>Pago de renta</span></button>
-      ${isOwner()?`<button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino</span></button>
-      <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja</span></button>`:''}
+      <button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino</span></button>
+      <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja</span></button>
       <button class="act a-mant" data-a="mant"><span class="ic">${I.wrench}</span><span>Mantenimiento</span></button>
     </div></section>`;
     h+=`<section><button class="dia" data-a="tab" data-t="hist"><span class="ic">${I.list}</span><span class="it"><b>Historial</b><span>Revisa tus recibos, pagos y avisos</span></span><span class="chev">${I.back}</span></button></section>`;
@@ -1155,11 +1162,11 @@ const VIEWS={
     const predios=list('predios').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
     const solos=ps.filter(p=>!p.predioId||!get('predios',p.predioId));
     let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
-    if(isOwner())h+=`<button class="btn pri full" data-a="newprop" style="margin-bottom:14px">${I.plus} Agregar propiedad</button>`;
+    h+=`<button class="btn pri full" data-a="newprop" style="margin-bottom:14px">${I.plus} Agregar propiedad</button>`;
     if(solos.length)h+='<div class="plist">'+solos.map(card).join('')+'</div>';
     for(const d of predios){const us=ps.filter(p=>p.predioId===d.id);
       h+=`<div class="sh" style="margin-top:20px"><h2 style="font-size:21px">${esc(d.nombre)}</h2><span class="cnt">${us.length} depto${us.length===1?'':'s'}</span></div>`;
-      if(isOwner())h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button></div>${chipPredial(d)?`<div class="ps" style="margin:-2px 0 12px">${chipPredial(d)}</div>`:''}`;
+      h+=`<div class="row" style="margin-bottom:12px"><button class="btn sm" data-a="editpredio" data-id="${d.id}">${I.edit} Editar edificio</button><button class="btn sm" data-a="addunit" data-id="${d.id}">${I.plus} Agregar depto</button></div>${(isOwner()?chipPredial(d):'')+chipIncl(d)?`<div class="ps" style="margin:-2px 0 12px">${(isOwner()?chipPredial(d):'')+chipIncl(d)}</div>`:''}`;
       h+='<div class="plist">'+us.sort((a,b)=>String(a.interior).localeCompare(String(b.interior),'es',{numeric:true})).map(card).join('')+'</div>'}
     if(!ps.length)h+='<div class="card empty"><p class="muted">Aún no hay propiedades.</p></div>';
     return h+'</section>';
@@ -1195,13 +1202,13 @@ const VIEWS={
 /* Detalle de propiedad */
 function pdet(id){
   const p=prop(id);if(!p)return closeSheet();const t=inqDe(id);const st=t?estadoRenta(t):null;
-  let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`);
+  let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${chipIncl(p)}${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`);
   if(t){
     h+=`<div class="box"><div class="ph"><h3>${esc(t.nombre)}</h3>${chipRenta(st)}</div><div class="muted">${money(t.renta)} al mes · paga el día ${esc(t.diaPago)} · desde el ${fechaLarga(t.fechaInicio)}</div><div class="muted">${t.telefono?'WhatsApp '+esc(t.telefono):'Sin WhatsApp registrado'}</div><div class="ps" style="margin-top:8px">${chipContrato(t)}</div>
       <div class="sep"></div><div class="row">${canWA()?`<button class="btn wa" data-a="wa" data-id="${t.id}" ${st&&st.etapa?`data-e="${st.etapa}"`:''}> ${I.chat} Mensaje de renta</button>`:''}<button class="btn" data-a="pago" data-id="${t.id}">${I.cash} Registrar pago</button></div>
-      ${isOwner()?`<div class="sep"></div><div class="row"><button class="btn sm" data-a="edit" data-c="inquilinos" data-id="${t.id}">${I.edit} Corregir datos</button><button class="btn sm" data-a="renov" data-id="${t.id}">${I.refresh} Renovar contrato</button><button class="btn sm" data-a="baja" data-id="${t.id}">${I.userMinus} Dar de baja</button></div>`:''}</div>`;
+      ${true?`<div class="sep"></div><div class="row"><button class="btn sm" data-a="edit" data-c="inquilinos" data-id="${t.id}">${I.edit} Corregir datos</button><button class="btn sm" data-a="renov" data-id="${t.id}">${I.refresh} Renovar contrato</button><button class="btn sm" data-a="baja" data-id="${t.id}">${I.userMinus} Dar de baja</button></div>`:''}</div>`;
   }else{
-    h+=`<div class="box"><h3>Desocupada</h3><div class="muted">Renta sugerida ${money(p.renta)} · día de pago ${esc(p.diaPago)}</div>${isOwner()?`<div class="sep"></div><button class="btn pri full" data-a="alta" data-id="${p.id}">${I.userPlus} Registrar inquilino</button>`:''}</div>`;
+    h+=`<div class="box"><h3>Desocupada</h3><div class="muted">Renta sugerida ${money(p.renta)} · día de pago ${esc(p.diaPago)}</div><div class="sep"></div><button class="btn pri full" data-a="alta" data-id="${p.id}">${I.userPlus} Registrar inquilino</button></div>`;
   }
   if(isOwner()){const dpr=predioDe(p);const src=(dpr&&(dpr.predialMonto||dpr.predialFecha))?{r:dpr,c:'predios'}:((p.predialFecha||p.predialMonto)?{r:p,c:'propiedades'}:null);
     if(src)h+=`<div class="box"><h3>Predial${src.c==='predios'?' del edificio':''}</h3><div class="muted">${src.r.predialMonto?money(src.r.predialMonto)+' al año':''}${src.r.predialMonto&&src.r.predialFecha?' · ':''}${src.r.predialFecha?'vence el '+fechaCompleta(src.r.predialFecha):''}</div>${src.r.predialPagado?`<div class="small muted">Último pago: ${fechaCompleta(src.r.predialPagado)}</div>`:''}${src.r.predialFecha?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="pred-pag" data-c="${src.c}" data-id="${src.r.id}">${I.check} Ya pagué el predial</button>`:''}</div>`}
@@ -1218,7 +1225,7 @@ function pdet(id){
   }
   const prev=list('inquilinos').filter(x=>x.propiedadId===id&&x.estado!=='activo').sort((a,b)=>a.fechaBaja<b.fechaBaja?1:-1);
   if(prev.length)h+=`<div class="box"><h3>Inquilinos anteriores</h3>${prev.map(x=>`<div class="small" style="padding:4px 0">${esc(x.nombre)} · ${fechaLarga(x.fechaInicio)} ${x.fechaInicio.slice(0,4)} – ${fechaLarga(x.fechaBaja)} ${String(x.fechaBaja).slice(0,4)}</div>`).join('')}</div>`;
-  if(isOwner())h+=`<div class="row"><button class="btn" data-a="editprop" data-id="${p.id}">${I.edit} Editar propiedad</button><button class="btn" data-a="delprop" data-id="${p.id}" style="color:var(--rojo)">${I.trash} Borrar</button></div>`;
+  h+=`<div class="row"><button class="btn" data-a="editprop" data-id="${p.id}">${I.edit} Editar propiedad</button><button class="btn" data-a="delprop" data-id="${p.id}" style="color:var(--rojo)">${I.trash} Borrar</button></div>`;
   sheet(h);
 }
 
