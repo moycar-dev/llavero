@@ -304,6 +304,19 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 .ut{flex:1;min-width:0;display:flex;flex-direction:column}
 .ut b{font-size:18px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ut span{font-size:15px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Propiedades registradas: más grandes y en dorado */
+.bld{background:#fff;border:2px solid var(--oro);border-radius:22px}
+.bhead{min-height:84px;padding:18px 20px;background:linear-gradient(#F8EBBE,#F2DE98);border-radius:20px 20px 0 0;gap:12px}
+.bld:not(.open) .bhead{border-radius:20px}
+.bhead .bn{font-size:25px;font-weight:800;color:#4F3A04;white-space:normal;line-height:1.2}
+.bhead .cnt{font-size:16px;font-weight:600;color:#6B5106}
+.bhead .chev{color:#4F3A04}.bhead .chev svg{width:28px;height:28px}
+.bbody{padding:14px}
+.un{background:var(--oro-l);color:var(--oro-t);box-shadow:inset 0 0 0 1px var(--oro-b);min-width:60px;height:60px;font-size:25px}
+.urow{padding:12px 14px;border-radius:18px;border:1.5px solid var(--oro-b)}
+.ut b{font-size:19px}
+.pcard{border-left:6px solid var(--oro);padding:22px 20px 22px 18px}
+.pcard .pn{font-size:25px;font-weight:800}
 </style>
 </head>
 <body>
@@ -322,7 +335,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.5.5', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.6', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
