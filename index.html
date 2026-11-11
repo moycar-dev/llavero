@@ -288,7 +288,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.5.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.1', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -398,7 +398,7 @@ function save(){if(!DEMO){ls(LSK,JSON.stringify(S));pushConn()}}
 /* Avisos al teléfono: el service worker necesita la conexión para pedir el texto del aviso */
 let _pc='';
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open('tc',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
-function pushConn(){try{const v=S.conn&&S.device&&S.rol==='propietario'?JSON.stringify({u:S.conn.u,k:S.conn.k,device:S.device,deviceName:S.deviceName||''}):'';if(v===_pc)return;_pc=v;
+function pushConn(){try{const v=S.conn&&S.device&&(S.rol==='propietario'||S.rol==='capturista')?JSON.stringify({u:S.conn.u,k:S.conn.k,device:S.device,deviceName:S.deviceName||''}):'';if(v===_pc)return;_pc=v;
   idbOpen().then(d=>{const st=d.transaction('k','readwrite').objectStore('k');if(v)st.put(JSON.parse(v),'conn');else st.delete('conn')}).catch(()=>{})}catch(e){}}
 const b64u={enc:a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),dec:s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');const r=atob(s+'==='.slice((s.length+3)%4));return Uint8Array.from(r,c=>c.charCodeAt(0))}};
 async function llamar(action,extra){
@@ -413,7 +413,7 @@ async function pushEstado(){
   if(!pushOk()){h=iosSinApp()?'<p class="muted small">En iPhone primero agrega la app a tu pantalla de inicio: toca Compartir y luego «Agregar a pantalla de inicio». Ábrela desde ahí y vuelve aquí.</p>':'<p class="muted small">Este teléfono o navegador no permite avisos. Prueba abrir la app desde Chrome (Android) o desde la pantalla de inicio (iPhone).</p>'}
   else if(Notification.permission==='denied'){h='<p class="muted small">Los avisos están bloqueados para esta app. Actívalos en los ajustes del teléfono (Notificaciones → Traza Casa) y vuelve aquí.</p>'}
   else{let sub=null;try{const reg=await navigator.serviceWorker.ready;sub=await reg.pushManager.getSubscription()}catch(e){}
-    h=sub?`<p class="muted small">Activados en este teléfono. Te avisa por la mañana si hay rentas por recordar, mantenimientos o predial cercano.</p><div class="row"><button class="btn" data-a="push-test">${I.chat} Mandar una prueba</button><button class="btn" data-a="push-off" style="color:var(--rojo)">Desactivar</button></div>`:`<p class="muted small">Recibe un aviso en este teléfono cuando haya algo por hacer, aunque la app esté cerrada.</p><button class="btn pri full" data-a="push-on">${I.chat} Activar avisos</button>`}
+    h=sub?`<p class="muted small">Activados en este teléfono. ${isOwner()?'Te avisa por la mañana si hay rentas por recordar, mantenimientos o predial cercano.':'Te avisa por la mañana si hay mantenimientos para hoy o mañana.'}</p><div class="row"><button class="btn" data-a="push-test">${I.chat} Mandar una prueba</button><button class="btn" data-a="push-off" style="color:var(--rojo)">Desactivar</button></div>`:`<p class="muted small">Recibe un aviso en este teléfono cuando haya algo por hacer, aunque la app esté cerrada.</p><button class="btn pri full" data-a="push-on">${I.chat} Activar avisos</button>`}
   const b2=document.getElementById('pushBox');if(b2)b2.innerHTML=h;
 }
 let S=load();
@@ -1304,7 +1304,7 @@ function ajustes(){
   else if(S.conn){h+=`<p class="muted">Conectado como <b>${esc(S.deviceName||'Sin nombre')}</b> · ${S.rol==='propietario'?'Propietario':S.rol==='capturista'?'Capturista':'esperando aprobación'}${S.lastSync?' · última vez '+fmtH.format(new Date(S.lastSync)):''}</p><div class="row"><button class="btn" data-a="sync">${I.refresh} Revisar conexión</button>${isOwner()&&S.conn?`<button class="btn" data-a="aj-link">${I.share} Enviar enlace a otro teléfono</button>`:''}</div><div class="sep"></div><button class="btn full" data-a="aj-off" style="color:var(--rojo)">Desconectar este teléfono</button>`}
   else h+=`<p class="muted">Pide al propietario el enlace de conexión y ábrelo en este teléfono.</p><details class="more"><summary class="btn sm">Conectar a mano</summary><label class="f" for="furl">Dirección de la hoja (/exec)</label><input class="inp" id="furl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"><label class="f" for="fkey">Clave</label><input class="inp" id="fkey" type="password" autocomplete="off"><label class="f" for="fname2">Tu nombre</label><input class="inp" id="fname2" maxlength="40" value="${esc(S.deviceName)}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri full" data-a="aj-manual">Conectar</button></details>`;
   h+='</div>';
-  if(own&&!DEMO&&S.conn)h+=`<div class="box"><h3>Avisos al teléfono</h3><div id="pushBox"><p class="muted small">Revisando…</p></div></div>`;
+  if(!DEMO&&S.conn&&(S.rol==='propietario'||S.rol==='capturista'))h+=`<div class="box"><h3>Avisos al teléfono</h3><div id="pushBox"><p class="muted small">Revisando…</p></div></div>`;
   if(own){
     h+=`<div class="box"><h3>Mensajes de WhatsApp</h3><p class="muted small">Firma: ${esc(c.propietario||'(sin nombre)')}. Puedes cambiar el texto del recordatorio de renta (1 día hábil antes).</p><button class="btn full" data-a="aj-plant">${I.chat} Editar mensajes</button></div>`;
     h+=`<div class="box"><h3>Descargar en Excel (CSV)</h3><div class="row"><button class="btn sm" data-a="aj-csv" data-c="gastos">${I.download} Recibos</button><button class="btn sm" data-a="aj-csv" data-c="pagos">${I.download} Pagos</button><button class="btn sm" data-a="aj-csv" data-c="inquilinos">${I.download} Inquilinos</button></div></div>`;
