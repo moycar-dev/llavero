@@ -270,6 +270,25 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 .fbox>summary{display:inline-flex;gap:8px;list-style:none;cursor:pointer}
 .fbox>summary::-webkit-details-marker{display:none}
 .fbox .box{margin-top:10px}
+/* Acentos de color por tipo de acción (menos azul) */
+:root{--teal:#0F766E;--teal-l:#E0F2EF;--coral:#C2410C;--coral-l:#FDEADF;--viol:#6D4AA8;--viol-l:#EFE9F8;--wa:#1F8A4C;--wa-d:#17703D}
+.act.a-gasto{background:var(--oro-l)}.act.a-gasto .ic{background:#fff;color:var(--oro-t);box-shadow:inset 0 0 0 1px var(--oro-b)}
+.act.a-pago{background:var(--verde-l)}.act.a-pago .ic{background:#fff;color:var(--verde);box-shadow:inset 0 0 0 1px #BFE0CB}
+.act.a-alta{background:var(--teal-l)}.act.a-alta .ic{background:#fff;color:var(--teal);box-shadow:inset 0 0 0 1px #B5DCD6}
+.act.a-baja{background:var(--viol-l)}.act.a-baja .ic{background:#fff;color:var(--viol);box-shadow:inset 0 0 0 1px #D6C9EC}
+.act.a-mant{background:var(--coral-l)}.act.a-mant .ic{background:#fff;color:var(--coral);box-shadow:inset 0 0 0 1px #F3C9B1}
+.act:active{filter:brightness(.97)}
+.btn.wa{background:var(--wa);border-color:var(--wa);color:#fff}.btn.wa:active{background:var(--wa-d)}
+.item .btn[data-a="gasto"]{background:var(--oro-l);border-color:var(--oro-b);color:var(--oro-t)}
+.item .btn[data-a="pago"],.item .btn[data-a="pred-pag"]{background:var(--verde-l);border-color:#BFE0CB;color:var(--verde)}
+.item .btn[data-a="mdet"]{background:var(--coral-l);border-color:#F3C9B1;color:var(--coral)}
+.item .btn[data-a="renov"]{background:var(--teal-l);border-color:#B5DCD6;color:var(--teal)}
+.dia .ic{color:var(--teal)}
+.btn[data-a="pago"]:not(.item .btn),.btn[data-a="p-save"]{background:var(--verde);border-color:var(--verde);color:#fff}
+.btn[data-a="gasto"]:not(.item .btn),.btn[data-a="g-save"]{background:var(--oro);border-color:var(--oro);color:#fff}
+.btn[data-a="m-save"]{background:var(--coral);border-color:var(--coral);color:#fff}
+.btn[data-a="a-save"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.filters .btn.on{background:var(--teal);border-color:var(--teal)}
 </style>
 </head>
 <body>
@@ -288,7 +307,7 @@ main .card:has(>.item),main .card:has(>.daytop){background:none;padding:0}
 
 <script>
 'use strict';
-const VER='1.5.2', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.5.4', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -717,6 +736,8 @@ FLOWS.baja={
 /* Propiedad nueva, edificio con departamentos, o edición */
 function predialInputs(r){return`<div class="box" style="margin-top:16px"><h3>Predial</h3><label class="f" for="fpre">Monto al año</label><div class="money" style="padding:0 14px"><span style="font-size:26px">$</span><input id="fpre" inputmode="decimal" style="font-size:26px" autocomplete="off" value="${esc(r.predialMonto||'')}" placeholder="0"></div><label class="f" for="fpref">Fecha límite de pago</label><input class="inp" type="date" id="fpref" value="${esc(r.predialFecha||'')}"><label class="f" for="fpreclave">Clave catastral (opcional)</label><input class="inp" id="fpreclave" maxlength="30" value="${esc(r.predialClave||'')}"><p class="hint">Te recuerdo 30 días antes. Si aún no lo sabes, déjalo vacío.</p></div>`}
 function leerPredial(){const m=val('fpre'),f=val('fpref');const n=m?num(m):0;if(m&&!(n>=0))return{err:'El monto del predial no es válido.'};if(n>0&&!f)return{err:'Pon también la fecha límite del predial.'};return{predialMonto:m?Math.round(n*100)/100:'',predialFecha:f||'',predialClave:val('fpreclave')}}
+function drow(n,t){return`<div class="drow box" style="padding:10px;margin-bottom:8px"><div class="two"><div><label class="f">Número o nombre</label><input class="inp dn" maxlength="20" placeholder="Ej. 1 o 101" value="${esc(n||'')}"></div><div><label class="f">Nota (opcional)</label><input class="inp dt" maxlength="80" placeholder="Ej. Planta alta" value="${esc(t||'')}"></div></div><button class="btn sm" data-a="ed-delrow" style="margin-top:6px;color:var(--rojo)">${I.trash} Quitar</button></div>`}
+function leerRows(){return[...document.querySelectorAll('#drows .drow')].map(r=>({n:r.querySelector('.dn').value.trim(),t:r.querySelector('.dt').value.trim()}))}
 function parseInts(t){const a=[...new Set(String(t).split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean))];return a}
 FLOWS.prop={
   start(){
@@ -733,7 +754,8 @@ FLOWS.prop={
     const compartido=d&&(d.predialMonto||d.predialFecha);
     let h=shead(F.id?'Datos de la propiedad':(pid?'Nuevo departamento':'Nueva propiedad'),d?`<span class="chip off">${esc(d.nombre)}</span>`:'');
     if(pid){h+=`<label class="f" for="fint">Número o nombre interior</label><input class="inp" id="fint" maxlength="20" placeholder="Ej. 4 o 101" value="${esc(p.interior||'')}" data-focus>`;
-      if(F.id)h+=`<label class="f" for="fnom">Nombre en la lista</label><input class="inp" id="fnom" maxlength="60" value="${esc(p.nombre||'')}">`}
+      if(F.id)h+=`<label class="f" for="fnom">Nombre en la lista</label><input class="inp" id="fnom" maxlength="60" value="${esc(p.nombre||'')}">`;
+      h+=`<label class="f" for="fnota">Nota del departamento (opcional)</label><input class="inp" id="fnota" maxlength="300" placeholder="Ej. Planta alta, entrada por el patio" value="${esc(p.notas||'')}">`}
     else h+=`<label class="f" for="fnom">¿Cómo le dices?</label><input class="inp" id="fnom" maxlength="60" placeholder="Ej. Casa Jardines" value="${esc(p.nombre||'')}" data-focus>`;
     h+=`<label class="f">Tipo</label><div class="seg">${TIPOS.slice(0,3).map(t=>`<button class="btn sm${F.tipo===t?' on':''}" data-a="pr-tipo" data-t="${t}">${t}</button>`).join('')}</div>
       <div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(p.renta||'')}"></div>
@@ -744,13 +766,13 @@ FLOWS.prop={
     h+=`<div class="err" id="ferr" hidden></div>
       <details class="more"><summary class="btn sm">${I.edit} Dirección o nota</summary>
       <label class="f" for="fdir">Dirección (opcional)</label><input class="inp" id="fdir" maxlength="120" value="${esc(p.direccion||'')}">
-      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="300" value="${esc(p.notas||'')}"></details>
+      ${pid?'':`<label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="300" value="${esc(p.notas||'')}">`}</details>
       <div class="sep"></div><button class="btn pri big full" data-a="pr-save">${I.check} Guardar</button>`;
     sheet(h);
   },
   edif1(){const e=F.e||{};sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" placeholder="Ej. Edificio Madero" value="${esc(e.nombre||'')}" data-focus><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(e.direccion||'')}"><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-1">Continuar</button>`)},
-  edif2(){sheet(shead('¿Cuáles son los departamentos?',`<span class="chip off">${esc(F.e.nombre)}</span>`)+`<p class="muted">Escribe el número o nombre de cada uno, separados por coma o en renglones.</p><textarea class="inp" id="fints" placeholder="1, 2, 3, 4" data-focus>${esc(F.ints||'')}</textarea><p class="hint">Ejemplos: 1, 2, 3 · 101, 102, 201 · A, B, C</p><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-2">Continuar</button>`)},
-  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">Servicios incluidos en la renta</label><p class="hint">Los paga el edificio. No se registran recibos por departamento.</p>${incSeg()}<label class="f">Servicios que paga cada inquilino</label>${servSeg()}<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
+  edif2(){const rows=F.rows&&F.rows.length?F.rows:[{n:'',t:''},{n:'',t:''}];sheet(shead('¿Cuáles son los departamentos?',`<span class="chip off">${esc(F.e.nombre)}</span>`)+`<p class="muted">Un renglón por departamento. Pon su número o nombre y, si quieres, una nota para identificarlo.</p><div id="drows">${rows.map(r=>drow(r.n,r.t)).join('')}</div><button class="btn full" data-a="ed-addrow" style="margin-top:8px">${I.plus} Agregar otro departamento</button><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-2">Continuar</button>`)},
+  edif3(){const e=F.e;sheet(shead('Renta y servicios',`<span class="chip off">${F.list.length} departamento${F.list.length>1?'s':''}</span>`)+`<p class="muted">Valores para empezar. Después puedes cambiarlos en cada departamento.</p><div class="two"><div><label class="f" for="fren">Renta al mes</label><input class="inp" id="fren" inputmode="decimal" value="${esc(e.renta||'')}" data-focus></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(e.diaPago||1)}</select></div></div><label class="f">Servicios incluidos en la renta</label><p class="hint">Los paga el propietario. El recibo se registra una sola vez, en el edificio (botón «Recibo del edificio»).</p>${incSeg()}<label class="f">Servicios que paga cada inquilino</label>${servSeg()}<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-3">Continuar</button>`)},
   edif4(){sheet(shead('¿Cómo se paga el predial?')+`<div class="opts"><button class="opt" data-a="pr-pmodo" data-m="edificio"><span class="ic s-inq">${I.home}</span><span class="it">Uno solo por todo el edificio<span>Un solo pago al año</span></span></button><button class="opt" data-a="pr-pmodo" data-m="unidad"><span class="ic s-inq">${I.key}</span><span class="it">Uno por cada departamento<span>Cada uno tiene su cuenta</span></span></button><button class="opt" data-a="pr-pmodo" data-m="no"><span class="ic s-inq">${I.clock}</span><span class="it">Todavía no lo sé<span>Lo agrego después</span></span></button></div>`)},
   pred(){sheet(shead(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada departamento')+(F.pmodo==='unidad'?'<p class="muted">Pongo el mismo monto y fecha a todos. Después puedes ajustar cada uno.</p>':'')+predialInputs(F.pr||{})+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="ed-pred">Continuar</button>`)},
   conf(){const e=F.e,pr=F.pr||{};const pt=F.pmodo==='no'||!pr.predialFecha&&!pr.predialMonto?'Sin predial por ahora':(F.pmodo==='edificio'?'Predial del edificio':'Predial de cada uno')+': '+(pr.predialMonto?money(pr.predialMonto)+' al año':'')+(pr.predialFecha?' · vence el '+fechaCompleta(pr.predialFecha):'');
@@ -927,7 +949,9 @@ const ACT={
   'pd-save'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');const x=isOwner()?leerPredial():{};if(x.err)return showErr(x.err);const r=Object.assign({},get('predios',F.id),{nombre,direccion:val('fedir'),incluidos:Object.keys(SERV).filter(s=>F.inc.includes(s)).join(',')},x);closeSheet();commit([{c:'predios',r}],'Edificio guardado')},
   'pr-modo'(d){F.modo=d.m;go(d.m==='solo'?'form':'edif1')},
   'ed-1'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');F.e=Object.assign(F.e||{},{nombre,direccion:val('fedir')});go('edif2')},
-  'ed-2'(){const a=parseInts(val('fints'));if(!a.length)return showErr('Escribe al menos un departamento.');if(a.length>60)return showErr('Son demasiados; máximo 60 por edificio.');if(a.some(x=>x.length>20))return showErr('Cada nombre debe tener 20 letras o menos.');F.ints=val('fints');F.list=a;go('edif3')},
+  'ed-addrow'(){const c=document.getElementById('drows');if(!c)return;if(c.querySelectorAll('.drow').length>=60)return showErr('Máximo 60 por edificio.');c.insertAdjacentHTML('beforeend',drow('',''));const x=c.querySelectorAll('.dn');x[x.length-1].focus()},
+  'ed-delrow'(d,b){const c=document.getElementById('drows');if(c.querySelectorAll('.drow').length<=1)return;b.closest('.drow').remove()},
+  'ed-2'(){const all=leerRows();F.rows=all;const a=all.filter(r=>r.n||r.t);if(a.some(r=>!r.n))return showErr('Cada departamento necesita su número o nombre.');if(!a.length)return showErr('Escribe al menos un departamento.');const k=a.map(r=>r.n.toLowerCase());if(new Set(k).size!==k.length)return showErr('Hay dos departamentos con el mismo número o nombre.');F.list=a.map(r=>r.n);F.nts=Object.fromEntries(a.map(r=>[r.n,r.t]));go('edif3')},
   'ed-3'(){const r=num(val('fren')||'0');if(!(r>=0))return showErr('La renta no es válida.');F.e=Object.assign(F.e,{renta:Math.round(r*100)/100,diaPago:Number(val('fdia'))});go('edif4')},
   'pr-pmodo'(d){F.pmodo=d.m;if(d.m==='no')F.pr={};go(d.m==='no'?'conf':'pred')},
   'ed-pred'(){const x=leerPredial();if(x.err)return showErr(x.err);F.pr=x;go('conf')},
@@ -935,7 +959,7 @@ const ACT={
     const dp=F.pmodo==='edificio'?pr:{},up=F.pmodo==='unidad'?pr:{};
     ops.push({c:'predios',r:{id:did,nombre:e.nombre,direccion:e.direccion||'',predialMonto:dp.predialMonto||'',predialFecha:dp.predialFecha||'',predialClave:dp.predialClave||'',predialPagado:'',notas:'',incluidos:Object.keys(SERV).filter(s=>F.inc.includes(s)).join(',')}});
     const sv=Object.keys(SERV).filter(s=>F.serv.includes(s)&&!F.inc.includes(s)).join(',');
-    for(const it of F.list)ops.push({c:'propiedades',r:{id:uid(),nombre:e.nombre+' · '+it,tipo:'Departamento',direccion:'',renta:e.renta||0,diaPago:e.diaPago,servicios:sv,notas:'',predioId:did,interior:it,predialMonto:up.predialMonto||'',predialFecha:up.predialFecha||'',predialClave:up.predialClave||'',predialPagado:'',incluidos:''}});
+    for(const it of F.list)ops.push({c:'propiedades',r:{id:uid(),nombre:e.nombre+' · '+it,tipo:'Departamento',direccion:'',renta:e.renta||0,diaPago:e.diaPago,servicios:sv,notas:(F.nts&&F.nts[it])||'',predioId:did,interior:it,predialMonto:up.predialMonto||'',predialFecha:up.predialFecha||'',predialClave:up.predialClave||'',predialPagado:'',incluidos:''}});
     const n=F.list.length;closeSheet();commit(ops,'Edificio guardado con '+n+' departamento'+(n>1?'s':''))},
   mant(){startFlow('mant',{})},
   'mant-p'(d){startFlow('mant',{destino:'p:'+d.id})},
@@ -1167,7 +1191,7 @@ const VIEWS={
   props(){
     const ps=propsOrd();const occ=ps.filter(p=>inqDe(p.id)).length;
     const card=p=>{const t=inqDe(p.id);const st=t?estadoRenta(t):null;
-      return`<button class="pcard" data-a="pdet" data-id="${p.id}"><div class="ph"><span class="ptype">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${t?'<span class="chip info">Rentada</span>':'<span class="chip off">Desocupada</span>'}</div><div class="pn">${esc(p.nombre)}</div><div class="pt">${t?esc(t.nombre)+' · '+money(t.renta)+' al mes':'Sin inquilino · renta sugerida '+money(p.renta)}</div>${t?`<div class="ps">${chipRenta(st)}${chipContrato(t)}</div>`:''}${invDe(p.id,'en').length?`<div class="small muted" style="margin-top:8px">${invDe(p.id,'en').length} en inventario</div>`:''}</button>`};
+      return`<button class="pcard" data-a="pdet" data-id="${p.id}"><div class="ph"><span class="ptype">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${t?'<span class="chip info">Rentada</span>':'<span class="chip off">Desocupada</span>'}</div><div class="pn">${esc(p.nombre)}</div>${p.notas?`<div class="pt" style="font-style:italic">${esc(p.notas)}</div>`:''}<div class="pt">${t?esc(t.nombre)+' · '+money(t.renta)+' al mes':'Sin inquilino · renta sugerida '+money(p.renta)}</div>${t?`<div class="ps">${chipRenta(st)}${chipContrato(t)}</div>`:''}${invDe(p.id,'en').length?`<div class="small muted" style="margin-top:8px">${invDe(p.id,'en').length} en inventario</div>`:''}</button>`};
     const predios=list('predios').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
     const solos=ps.filter(p=>!p.predioId||!get('predios',p.predioId));
     let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
@@ -1211,7 +1235,7 @@ const VIEWS={
 /* Detalle de propiedad */
 function pdet(id){
   const p=prop(id);if(!p)return closeSheet();const t=inqDe(id);const st=t?estadoRenta(t):null;
-  let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${chipIncl(p)}${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`);
+  let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${chipIncl(p)}${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`)+(p.notas?`<p class="muted" style="margin:-4px 2px 10px;font-style:italic">${esc(p.notas)}</p>`:'');
   if(t){
     h+=`<div class="box"><div class="ph"><h3>${esc(t.nombre)}</h3>${chipRenta(st)}</div><div class="muted">${money(t.renta)} al mes · paga el día ${esc(t.diaPago)} · desde el ${fechaLarga(t.fechaInicio)}</div><div class="muted">${t.telefono?'WhatsApp '+esc(t.telefono):'Sin WhatsApp registrado'}</div><div class="ps" style="margin-top:8px">${chipContrato(t)}</div>
       <div class="sep"></div><div class="row">${canWA()?`<button class="btn wa" data-a="wa" data-id="${t.id}" ${st&&st.etapa?`data-e="${st.etapa}"`:''}> ${I.chat} Mensaje de renta</button>`:''}<button class="btn" data-a="pago" data-id="${t.id}">${I.cash} Registrar pago</button></div>
