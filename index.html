@@ -324,6 +324,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;box-shadow:0 -1px 0 v
 main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 .stp{display:flex;align-items:center;gap:10px}.stp .btn{min-width:60px;min-height:56px;padding:0;font-size:28px;font-weight:600}.stp input{flex:1;min-width:0;text-align:center;font:inherit;font-size:26px;font-weight:700;padding:12px;border:1.5px solid var(--line2);border-radius:16px;background:#fff;color:var(--ink)}
 .qtyb{flex:none;font-weight:800;font-size:18px;color:var(--teal);background:var(--teal-l);border-radius:12px;padding:4px 10px;margin-right:6px}
+.opt .chip{flex:none;font-size:14px;padding:3px 10px}.opt .it{flex:1;min-width:0}
+.opt:has(>.chip){display:grid;grid-template-columns:44px 1fr;column-gap:14px;row-gap:6px;align-items:center}.opt:has(>.chip)>.ic{grid-row:1/3;align-self:start}.opt:has(>.chip)>.chip{grid-column:2;justify-self:start}
 </style>
 </head>
 <body>
@@ -342,7 +344,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.6.1', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.6.2', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -518,7 +520,7 @@ function chipRenta(st){
   if(st.dias<0)return`<span class="chip bad">Atrasado ${-st.dias} día${st.dias===-1?'':'s'}</span>`;
   if(st.dias===0)return'<span class="chip bad">Vence hoy</span>';
   if(st.dias<=15)return`<span class="chip warn">Vence en ${st.dias} día${st.dias===1?'':'s'}</span>`;
-  return`<span class="chip ok">Próximo pago: ${fechaLarga(st.due)}</span>`;
+  {const[,m,d]=st.due.split('-').map(Number);return`<span class="chip ok">Paga ${d} ${MESES[m-1].slice(0,3)}</span>`}
 }
 function mensaje(t,st,etapa){
   const p=prop(t.propiedadId)||{},c=cfg();
