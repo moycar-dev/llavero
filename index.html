@@ -348,7 +348,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.7', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.8', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -699,7 +699,7 @@ function servSeg(){return`<div class="seg sv">${Object.keys(SERV).filter(s=>!(F.
 const FLOWS={};
 /* Gasto */
 FLOWS.gasto={
-  start(){F.step=F.s&&F.pid?'monto':F.s?'prop':'serv';this[F.step]()},
+  start(){F.lote=[];F.fromProp=!!F.pid;F.step=F.s&&F.pid?'monto':F.s?'prop':'serv';this[F.step]()},
   serv(){const ss=Object.keys(SERV).filter(s=>recTargets(s).some(t=>!F.pid||t.id===F.pid));if(!ss.length){sheet(shead('No hay recibos por registrar')+'<p class="muted">Ninguna propiedad ni edificio tiene servicios activos. Actívalos al editar la propiedad o el edificio.</p>');return}sheet(shead('¿Qué recibo vas a registrar?')+'<div class="opts">'+ss.map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
   prop(){
     const M=F.mes||curMonth();const ps=recTargets(F.s),multi=!!F.multi,sel=F.sel||[];
@@ -707,7 +707,9 @@ FLOWS.gasto={
     const g=pid=>gastoDe(pid,F.s,M);
     ps.sort((a,b)=>(recCubierto(a.id,F.s,M)?1:0)-(recCubierto(b.id,F.s,M)?1:0));
     const el=document.querySelector('#sheet .sheet'),sc=el?el.scrollTop:0;
-    sheet(shead(multi?'¿Qué edificios comparten el recibo?':'¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+(multi?'<p class="hint" style="margin:0 2px 8px">Toca todos los que van en el mismo recibo.</p>':(ps.length>1?`<button class="btn sm" data-a="g-multi" style="margin-bottom:10px">${I.plus} Un recibo para varios juntos</button>`:''))+'<div class="opts">'+ps.map(p=>{const x=g(p.id),cu=recCubierto(p.id,F.s,M),on=sel.includes(p.id);return`<button class="opt${multi&&on?' sel':''}" data-a="g-prop" data-id="${p.id}"><span class="ic ${multi?(on?'done':'s-'+F.s):cu?'done':'s-'+F.s}">${(multi?on:cu)?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+(grpIds(x).length?' (recibo compartido)':'')+(multi?'':' · tocar para corregir'):cu?'Al corriente ('+FREQ_TXT[F.s]+')'+(multi?'':' · tocar para agregar otro'):FREQ[F.s]===0?'Registra cuando llegue el recibo':'Falta registrar'}</span></span></button>`}).join('')+'</div>'+(multi?`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="g-next">Continuar${sel.length?' ('+sel.length+')':''}</button>`:''));
+    const lote=(F.lote||[]).map(id=>get('gastos',id)).filter(Boolean),tot=lote.reduce((a,g)=>a+ +g.monto,0);
+    const loteH=lote.length&&!multi?`<div class="box" style="margin-bottom:12px"><h3>Registrados ahora (${lote.length})</h3>${lote.map(g=>`<button class="li" data-a="g-edit" data-id="${g.id}"><span class="ic done">${I.check}</span><span class="it"><b>${esc(grpIds(g).length?grpNombres(g):recName(g.propiedadId))}${recNom(g)?' · '+esc(recNom(g)):''}</b><span>${SERV[g.servicio].n} · ${mesLargo(g.mes)}</span></span><span class="amt">${money(g.monto)}</span></button>`).join('')}<div class="sep"></div><button class="btn pri full" data-a="g-fin">Terminé · total ${money(tot)}</button><p class="hint">Toca uno para corregirlo. Sigue con el siguiente de la lista de abajo.</p></div>`:'';
+    sheet(shead(multi?'¿Qué edificios comparten el recibo?':'¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+loteH+(multi?'<p class="hint" style="margin:0 2px 8px">Toca todos los que van en el mismo recibo.</p>':(ps.length>1?`<button class="btn sm" data-a="g-multi" style="margin-bottom:10px">${I.plus} Un recibo para varios juntos</button>`:''))+'<div class="opts">'+ps.map(p=>{const x=g(p.id),cu=recCubierto(p.id,F.s,M),on=sel.includes(p.id);return`<button class="opt${multi&&on?' sel':''}" data-a="g-prop" data-id="${p.id}"><span class="ic ${multi?(on?'done':'s-'+F.s):cu?'done':'s-'+F.s}">${(multi?on:cu)?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+(grpIds(x).length?' (recibo compartido)':'')+(multi?'':' · tocar para corregir'):cu?'Al corriente ('+FREQ_TXT[F.s]+')'+(multi?'':' · tocar para agregar otro'):FREQ[F.s]===0?'Registra cuando llegue el recibo':'Falta registrar'}</span></span></button>`}).join('')+'</div>'+(multi?`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="g-next">Continuar${sel.length?' ('+sel.length+')':''}</button>`:''));
     if(multi){const e=document.querySelector('#sheet .sheet');if(e)e.scrollTop=sc}
   },
   monto(){
@@ -738,6 +740,7 @@ FLOWS.gasto={
       <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar</button>${F.s&&recTargets(F.s).length>1?`<div class="sep"></div><button class="btn sm" data-a="g-multi2">${I.plus} Este recibo es de varios edificios juntos</button>`:''}`);
   }
 };
+function loteSig(ids,mes){F.lote=[...new Set((F.lote||[]).concat(ids))];F.mes=mes;F.pid=null;F.sel=[];F.multi=false;F.exId=null;F.nuevo=false;F.okRaro=null;F.hist=[];F.step='prop';FLOWS.gasto.prop()}
 function repPartes(m,n,rep){if(rep==='igual')return Array(n).fill(m);const c=Math.round(m/n*100)/100,a=Array(n).fill(c);a[0]=Math.round((m-c*(n-1))*100)/100;return a}
 function updRep(){const h=document.getElementById('frep');if(!h)return;const ids=F.sel||[],m=num(val('fmonto'));if(!(m>0)){h.textContent='';return}if(F.rep==='uno'){h.textContent=`Se anota ${money(m)} una sola vez, para: `+ids.map(recName).join(' + ')+'.';return}const ps=repPartes(m,ids.length,F.rep);h.textContent=F.rep==='igual'?`Se anota ${money(m)} en cada uno (${money(m*ids.length)} en total).`:`Total ${money(m)}: `+ids.map((i,k)=>recName(i)+' '+money(ps[k])).join(' · ')}
 /* Pago */
@@ -1050,6 +1053,8 @@ const ACT={
   'g-prop'(d){if(F.multi){F.sel=F.sel||[];const i=F.sel.indexOf(d.id);if(i>=0)F.sel.splice(i,1);else F.sel.push(d.id);FLOWS.gasto.prop();return}F.pid=d.id;go('monto')},
   'g-pick'(d){F.nuevo=false;F.exId=d.id;FLOWS.gasto.monto()},
   'g-nuevo'(){F.nuevo=true;F.exId=null;FLOWS.gasto.monto();const e=document.getElementById('fnombre');if(e)e.focus()},
+  'g-edit'(d){const g=get('gastos',d.id);if(!g)return;if(grpIds(g).length){toast('Este recibo es de varios edificios. Corrígelo desde el Historial.',null,true);return}F.pid=g.propiedadId;F.exId=g.id;F.nuevo=false;F.mes=g.mes;go('monto')},
+  'g-fin'(){const l=(F.lote||[]).map(id=>get('gastos',id)).filter(Boolean),n=l.length,tot=l.reduce((a,g)=>a+ +g.monto,0);closeSheet();toast('Listo: '+n+' recibo'+(n===1?'':'s')+' · total '+money(tot))},
   'g-multi'(){F.multi=true;F.sel=[];FLOWS.gasto.prop()},
   'g-multi2'(){F.multi=true;F.sel=[F.pid];go('prop')},
   'g-next'(){const s=F.sel||[];if(!s.length)return showErr('Toca al menos un edificio.');F.pid=s[0];if(s.length===1)F.multi=false;go('monto')},
@@ -1058,18 +1063,22 @@ const ACT={
     if(F.multi&&F.sel&&F.sel.length>1&&F.rep==='uno'){const ids=F.sel,nt=val('fnota'),mk='§'+ids.join(',')+'§ ';
       const ex=list('gastos').find(x=>x.servicio===F.s&&x.mes===mes&&(x.propiedadId===ids[0]||grpIds(x).some(i=>ids.includes(i))));
       const nota=(mk+nt).slice(0,200);
-      const sv=F.s;closeSheet();commit([{c:'gastos',r:ex?Object.assign({},ex,{monto:m,nota}):{id:uid(),propiedadId:ids[0],servicio:sv,mes,monto:m,nota}}],'Listo, un solo recibo para los '+ids.length+' edificios');return}
+      const rr=ex?Object.assign({},ex,{monto:m,nota}):{id:uid(),propiedadId:ids[0],servicio:F.s,mes,monto:m,nota};
+      commit([{c:'gastos',r:rr}],'Listo, un solo recibo para los '+ids.length+' edificios');loteSig([rr.id],mes);return}
     if(F.multi&&F.sel&&F.sel.length>1){const ids=F.sel,ps=repPartes(m,ids.length,F.rep),nt=val('fnota'),ops=[];
       ids.forEach((id,k)=>{const ex=list('gastos').find(x=>x.propiedadId===id&&x.servicio===F.s&&x.mes===mes);
         const nota=('Recibo compartido de '+ids.length+' edificios'+(F.rep==='igual'?'':' (total '+money(m)+')')+(nt?' · '+nt:'')).slice(0,200);
         ops.push({c:'gastos',r:ex?Object.assign({},ex,{monto:ps[k],nota}):{id:uid(),propiedadId:id,servicio:F.s,mes,monto:ps[k],nota}})});
-      closeSheet();commit(ops,'Listo, el recibo quedó en los '+ids.length+' edificios');return}
+      commit(ops,'Listo, el recibo quedó en los '+ids.length+' edificios');loteSig(ops.map(o=>o.r.id),mes);return}
     const nom=val('fnombre'),ex=F.exId&&!F.nuevo?get('gastos',F.exId):null;
     const same=list('gastos').filter(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===mes&&!grpIds(x).length&&(!ex||x.id!==ex.id));
     if(same.find(x=>recNom(x).toLowerCase()===nom.replace(/[§¶]/g,'').trim().toLowerCase()))return showErr(nom?'Ya hay un recibo con ese nombre este mes.':'Ya hay un recibo sin nombre este mes. Ponle un nombre a este para distinguirlos.');
     const nota=(mkNom(nom)+val('fnota')).slice(0,200);
+    if(!same.length){const pv=serieGasto(F.pid,F.s).filter(x=>x.mes<mes).slice(-6).map(x=>x.monto);
+      if(pv.length>=2){const md=median(pv);if(md>0&&(m>2*md||m<0.5*md)&&F.okRaro!==m){F.okRaro=m;return showErr('Normalmente son unos '+money(md)+'. ¿Seguro que son '+money(m)+'? Si está bien, toca Guardar otra vez.')}}}
     const r=ex?Object.assign({},ex,{monto:m,nota}):{id:uid(),propiedadId:F.pid,servicio:F.s,mes,monto:m,nota};
-    closeSheet();commit([{c:'gastos',r}],'Listo, quedó guardado')},
+    if(F.fromProp){closeSheet();commit([{c:'gastos',r}],'Listo, quedó guardado');return}
+    commit([{c:'gastos',r}],'Guardado: '+recName(r.propiedadId)+' · '+money(m));loteSig([r.id],mes)},
   'p-otro'(){closeSheet();startFlow('pago',{})},
   'p-quien'(d){F.tid=d.id;go('monto')},
   'p-save'(){const m=parseMonto();if(m==null)return;const t=get('inquilinos',F.tid);const st=estadoRenta(t);
