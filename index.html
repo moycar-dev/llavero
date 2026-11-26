@@ -358,7 +358,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.11', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.12', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -1516,11 +1516,11 @@ function cambios(mes){
 }
 function totalMes(m,solo){const r={luz:0,agua:0,gas:0,internet:0};for(const g of list('gastos'))if(g.mes===m&&(!solo||solo.has(g.propiedadId+'|'+g.servicio)))r[g.servicio]+=+g.monto;r.total=r.luz+r.agua+r.gas+r.internet;return r}
 function rentasMes(m){
-  let esperado=0,cobrado=0;const falta=[];
+  let esperado=0,cobrado=0,n=0;const falta=[];
   for(const t of list('inquilinos')){if(!prop(t.propiedadId))continue;const due=dueDate(m,Number(t.diaPago)||1);
     if(t.fechaInicio>due)continue;if(t.estado!=='activo'&&t.fechaBaja&&t.fechaBaja<due)continue;
-    esperado+=+t.renta;const ps=list('pagos').filter(x=>x.inquilinoId===t.id&&x.mes===m);const s=ps.reduce((a,x)=>a+ +x.monto,0);cobrado+=s;if(!ps.length&&due<=today())falta.push(t)}
-  return{esperado,cobrado,falta};
+    n++;esperado+=+t.renta;const ps=list('pagos').filter(x=>x.inquilinoId===t.id&&x.mes===m);const s=ps.reduce((a,x)=>a+ +x.monto,0);cobrado+=s;if(!ps.length&&due<=today())falta.push(t)}
+  return{esperado,cobrado,falta,total:n};
 }
 function chart(endMes){
   const ms=[];for(let i=5;i>=0;i--)ms.push(addMonths(endMes,-i));
@@ -1545,7 +1545,7 @@ function resumen(){
   const dif=tp.total?(tmc.total-tp.total)/tp.total:null;
   const pct=rm.esperado?Math.min(100,Math.round(rm.cobrado/rm.esperado*100)):0;
   let h=`<div class="mnav"><button class="btn sm" data-a="mprev" aria-label="Mes anterior">${I.back}</button><b>${mesLargo(m)}</b><button class="btn sm" data-a="mnext" aria-label="Mes siguiente" ${m>=curMonth()?'disabled style="opacity:.4"':''}><span style="transform:rotate(180deg);display:flex">${I.back}</span></button></div><div class="grid2">`;
-  h+=`<div class="card"><div class="kl">Rentas cobradas</div><div class="kpi">${money(rm.cobrado)}</div><div class="muted">de ${money(rm.esperado)} esperados</div><div class="bar"><i style="width:${pct}%"></i></div><p class="phrase">${rm.falta.length?'Falta: '+rm.falta.map(t=>esc(firstName(t.nombre))+' ('+esc(prop(t.propiedadId).nombre)+')').join(', '):'Todos pagaron este mes.'}</p></div>`;
+  h+=`<div class="card"><div class="kl">Rentas cobradas</div><div class="kpi">${money(rm.cobrado)}</div><div class="muted">de ${money(rm.esperado)} esperados</div><div class="bar"><i style="width:${pct}%"></i></div><p class="phrase">${rm.falta.length?'Faltan '+rm.falta.length+' de '+rm.total+' inquilinos.':'Todos pagaron este mes.'}</p>${rm.falta.length&&m===curMonth()?`<button class="btn sm" data-a="pago" style="margin-top:8px">${I.cash} Ver quién falta</button>`:''}</div>`;
   h+=`<div class="card"><div class="kl">Servicios del mes</div><div class="kpi">${money(tm.total)}</div><p class="phrase">${dif==null?'Aún no hay mes anterior para comparar.':Math.abs(dif)<0.03?'Casi igual que el mes pasado.':(dif>0?`<span class="up">Subió ${Math.round(dif*100)}%</span>`:`<span class="down">Bajó ${Math.round(-dif*100)}%</span>`)+' contra '+MESES[Number(addMonths(m,-1).slice(5))-1]+' en los mismos recibos ('+money(tp.total)+').'}</p><p class="muted small">${Object.keys(SERV).filter(s=>s!=='internet'||tm.internet>0).map(s=>SERV[s].n+' '+money(tm[s])).join(' · ')}</p></div>`;
   const mm=mantMes(m);
   if(mm.n)h+=`<div class="card"><div class="kl">Mantenimientos</div><div class="kpi">${money(mm.total)}</div><p class="phrase">${mm.n} mantenimiento${mm.n>1?'s':''} en ${MESES[Number(m.slice(5))-1]}.</p></div>`;
