@@ -347,7 +347,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.1', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.3', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -497,7 +497,16 @@ function isTarget(p,s){return hasServ(p,s)||(!(p.predioId&&get('predios',p.predi
 function recTargets(s){const o=[];list('propiedades').forEach(p=>{if(isTarget(p,s))o.push({id:p.id,nombre:p.nombre})});list('predios').forEach(d=>{if(incl(d).includes(s))o.push({id:d.id,nombre:d.nombre+' (edificio)'})});return o}
 function recName(id){const x=get('propiedades',id)||get('predios',id);return x?x.nombre:''}
 function ventana(M,s){const f=FREQ[s]||1;return Array.from({length:f},(_,i)=>addMonths(M,-i))}
-function recCubierto(id,s,M){const v=ventana(M,s);return list('gastos').some(g=>g.propiedadId===id&&g.servicio===s&&v.includes(g.mes))}
+/* Recibo compartido de varios edificios: un solo registro, con la lista de edificios al inicio de la nota */
+function grpIds(g){const m=/^§([^§]*)§/.exec(String(g&&g.nota||''));return m?m[1].split(',').filter(Boolean):[]}
+function notaTxt(g){return String(g&&g.nota||'').replace(/^§[^§]*§ ?/,'').replace(/^¶[^¶]*¶ ?/,'')}
+/* Nombre del recibo (varios recibos del mismo servicio en un edificio): va en la nota entre ¶ */
+function recNom(g){const s=String(g&&g.nota||'').replace(/^§[^§]*§ ?/,''),m=/^¶([^¶]*)¶/.exec(s);return m?m[1].trim():''}
+function mkNom(n){n=String(n||'').replace(/[§¶]/g,'').trim().slice(0,40);return n?'¶'+n+'¶ ':''}
+function serieGasto(pid,s,hasta){const m={};list('gastos').filter(g=>g.propiedadId===pid&&g.servicio===s&&(!hasta||g.mes<=hasta)).forEach(g=>{m[g.mes]=(m[g.mes]||0)+ +g.monto});return Object.keys(m).sort().map(k=>({mes:k,monto:m[k]}))}
+function grpNombres(g){return grpIds(g).map(recName).filter(Boolean).join(' + ')}
+function gastoDe(id,s,M){return list('gastos').find(x=>x.servicio===s&&x.mes===M&&(x.propiedadId===id||grpIds(x).includes(id)))}
+function recCubierto(id,s,M){const v=ventana(M,s);return list('gastos').some(g=>g.servicio===s&&v.includes(g.mes)&&(g.propiedadId===id||grpIds(g).includes(id)))}
 function chipIncl(x){const a=incl(x);return a.length?`<span class="chip ok">Incluye ${a.map(s=>SERV[s].n.toLowerCase()).join(', ')}</span>`:''}
 function isOwner(){return DEMO||!S.conn||S.rol==='propietario'}
 /* El capturista puede todo salvo mandar mensajes de dinero de renta */
@@ -686,19 +695,19 @@ FLOWS.gasto={
   prop(){
     const M=F.mes||curMonth();const ps=recTargets(F.s),multi=!!F.multi,sel=F.sel||[];
     if(!ps.length){sheet(shead('No hay propiedades con '+SERV[F.s].n)+'<p class="muted">Agrega una propiedad o activa este servicio en sus datos.</p>');return}
-    const g=pid=>list('gastos').find(x=>x.propiedadId===pid&&x.servicio===F.s&&x.mes===M);
+    const g=pid=>gastoDe(pid,F.s,M);
     ps.sort((a,b)=>(recCubierto(a.id,F.s,M)?1:0)-(recCubierto(b.id,F.s,M)?1:0));
     const el=document.querySelector('#sheet .sheet'),sc=el?el.scrollTop:0;
-    sheet(shead(multi?'¿Qué edificios comparten el recibo?':'¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+(multi?'<p class="hint" style="margin:0 2px 8px">Toca todos los que van en el mismo recibo.</p>':(ps.length>1?`<button class="btn sm" data-a="g-multi" style="margin-bottom:10px">${I.plus} Un recibo para varios juntos</button>`:''))+'<div class="opts">'+ps.map(p=>{const x=g(p.id),cu=recCubierto(p.id,F.s,M),on=sel.includes(p.id);return`<button class="opt${multi&&on?' sel':''}" data-a="g-prop" data-id="${p.id}"><span class="ic ${multi?(on?'done':'s-'+F.s):cu?'done':'s-'+F.s}">${(multi?on:cu)?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+(multi?'':' · tocar para corregir'):cu?'Al corriente ('+FREQ_TXT[F.s]+')'+(multi?'':' · tocar para agregar otro'):FREQ[F.s]===0?'Registra cuando llegue el recibo':'Falta registrar'}</span></span></button>`}).join('')+'</div>'+(multi?`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="g-next">Continuar${sel.length?' ('+sel.length+')':''}</button>`:''));
+    sheet(shead(multi?'¿Qué edificios comparten el recibo?':'¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+(multi?'<p class="hint" style="margin:0 2px 8px">Toca todos los que van en el mismo recibo.</p>':(ps.length>1?`<button class="btn sm" data-a="g-multi" style="margin-bottom:10px">${I.plus} Un recibo para varios juntos</button>`:''))+'<div class="opts">'+ps.map(p=>{const x=g(p.id),cu=recCubierto(p.id,F.s,M),on=sel.includes(p.id);return`<button class="opt${multi&&on?' sel':''}" data-a="g-prop" data-id="${p.id}"><span class="ic ${multi?(on?'done':'s-'+F.s):cu?'done':'s-'+F.s}">${(multi?on:cu)?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+(grpIds(x).length?' (recibo compartido)':'')+(multi?'':' · tocar para corregir'):cu?'Al corriente ('+FREQ_TXT[F.s]+')'+(multi?'':' · tocar para agregar otro'):FREQ[F.s]===0?'Registra cuando llegue el recibo':'Falta registrar'}</span></span></button>`}).join('')+'</div>'+(multi?`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="g-next">Continuar${sel.length?' ('+sel.length+')':''}</button>`:''));
     if(multi){const e=document.querySelector('#sheet .sheet');if(e)e.scrollTop=sc}
   },
   monto(){
     const M=F.mes||curMonth();
     const ids=F.multi&&F.sel&&F.sel.length>1?F.sel:[F.pid];
     if(ids.length>1){
-      F.rep=F.rep||'div';
+      F.rep=F.rep||'uno';
       sheet(shead('¿Cuánto fue el recibo?',servBadge(F.s)+ids.map(i=>`<span class="chip off">${esc(recName(i))}</span>`).join(''))+moneyInp('')+`
-        <label class="f">¿Cómo se reparte entre los ${ids.length}?</label><div class="seg">${[['div','Partes iguales'],['igual','Ese monto en cada uno']].map(([n,x])=>`<button class="btn sm${F.rep===n?' on':''}" data-a="g-rep" data-n="${n}">${x}</button>`).join('')}</div>
+        <label class="f">¿Cómo se reparte entre los ${ids.length}?</label><div class="seg">${[['uno','Un solo recibo para todos'],['div','Partes iguales'],['igual','Ese monto en cada uno']].map(([n,x])=>`<button class="btn sm${F.rep===n?' on':''}" data-a="g-rep" data-n="${n}">${x}</button>`).join('')}</div>
         <p class="hint" id="frep"></p><div class="err" id="ferr" hidden></div>
         <details class="more"${F.mes&&F.mes!==curMonth()?' open':''}><summary class="btn sm">${I.edit} Cambiar mes o nota</summary>
         <label class="f" for="fmes">Mes del recibo</label><select class="inp" id="fmes">${mesOptions(M,-12,1)}</select>
@@ -706,19 +715,22 @@ FLOWS.gasto={
         <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar en los ${ids.length}</button>`);
       updRep();return}
     const p={nombre:recName(F.pid)};
-    const ex=list('gastos').find(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===M);
-    F.exId=ex?ex.id:null;
-    const prev=list('gastos').filter(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes<M).sort((a,b)=>a.mes<b.mes?-1:1).slice(-6).map(x=>+x.monto);
-    const hint=prev.length>=2?`Lo normal aquí: <b>${money(median(prev))}</b> (según tus últimos ${prev.length} recibos)`:prev.length===1?`El recibo anterior fue de <b>${money(prev[0])}</b>`:'Es el primer recibo de este servicio aquí.';
-    sheet(shead('¿Cuánto fue?',servBadge(F.s)+`<span class="chip off">${esc(p.nombre)}</span>`)+moneyInp(ex?ex.monto:'')+`<p class="hint">${hint}</p><div class="err" id="ferr" hidden></div>
+    const all=list('gastos').filter(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===M&&!grpIds(x).length);
+    if(F.nuevo)F.exId=null;else if(!F.exId||!all.find(x=>x.id===F.exId))F.exId=all[0]?all[0].id:null;
+    const ex=F.exId?get('gastos',F.exId):null;
+    const prev=serieGasto(F.pid,F.s).filter(x=>x.mes<M).slice(-6).map(x=>x.monto);
+    const hint=prev.length>=2?`Lo normal aquí: <b>${money(median(prev))}</b> (según tus últimos ${prev.length} meses)`:prev.length===1?`El mes anterior fue de <b>${money(prev[0])}</b>`:'Es el primer recibo de este servicio aquí.';
+    const lista=all.length?`<div class="box" style="margin-bottom:12px"><h3>Ya anotados este mes</h3><div class="seg">${all.map(x=>`<button class="btn sm${ex&&ex.id===x.id?' on':''}" data-a="g-pick" data-id="${x.id}">${esc(recNom(x)||'Recibo')} · ${money(x.monto)}</button>`).join('')}<button class="btn sm${F.nuevo?' on':''}" data-a="g-nuevo">${I.plus} Otro recibo</button></div><p class="hint">${F.nuevo?'Vas a agregar otro recibo. Ponle un nombre para distinguirlo.':'Toca uno para corregirlo, o agrega otro recibo si este edificio tiene más de uno.'}</p></div>`:'';
+    sheet(shead('¿Cuánto fue?',servBadge(F.s)+`<span class="chip off">${esc(p.nombre)}</span>`)+lista+moneyInp(ex?ex.monto:'')+`<p class="hint">${hint}</p>
+      <label class="f" for="fnombre">Nombre del recibo (opcional)</label><input class="inp" id="fnombre" maxlength="40" autocomplete="off" placeholder="Ej. Medidor 2, Áreas comunes" value="${esc(ex?recNom(ex):'')}"><div class="err" id="ferr" hidden></div>
       <details class="more"${F.mes&&F.mes!==curMonth()?' open':''}><summary class="btn sm">${I.edit} Cambiar mes o nota</summary>
       <label class="f" for="fmes">Mes del recibo</label><select class="inp" id="fmes">${mesOptions(M,-12,1)}</select>
-      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(ex?ex.nota:'')}"></details>
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="150" value="${esc(ex?notaTxt(ex):'')}"></details>
       <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar</button>${F.s&&recTargets(F.s).length>1?`<div class="sep"></div><button class="btn sm" data-a="g-multi2">${I.plus} Este recibo es de varios edificios juntos</button>`:''}`);
   }
 };
 function repPartes(m,n,rep){if(rep==='igual')return Array(n).fill(m);const c=Math.round(m/n*100)/100,a=Array(n).fill(c);a[0]=Math.round((m-c*(n-1))*100)/100;return a}
-function updRep(){const h=document.getElementById('frep');if(!h)return;const ids=F.sel||[],m=num(val('fmonto'));if(!(m>0)){h.textContent='';return}const ps=repPartes(m,ids.length,F.rep);h.textContent=F.rep==='igual'?`Se anota ${money(m)} en cada uno (${money(m*ids.length)} en total).`:`Total ${money(m)}: `+ids.map((i,k)=>recName(i)+' '+money(ps[k])).join(' · ')}
+function updRep(){const h=document.getElementById('frep');if(!h)return;const ids=F.sel||[],m=num(val('fmonto'));if(!(m>0)){h.textContent='';return}if(F.rep==='uno'){h.textContent=`Se anota ${money(m)} una sola vez, para: `+ids.map(recName).join(' + ')+'.';return}const ps=repPartes(m,ids.length,F.rep);h.textContent=F.rep==='igual'?`Se anota ${money(m)} en cada uno (${money(m*ids.length)} en total).`:`Total ${money(m)}: `+ids.map((i,k)=>recName(i)+' '+money(ps[k])).join(' · ')}
 /* Pago */
 FLOWS.pago={
   start(){F.step=F.tid?'monto':'quien';this[F.step]()},
@@ -966,7 +978,7 @@ FLOWS.edit={
   form(){
     const r=get(F.c,F.id);if(!r)return closeSheet();
     let h='';
-    if(F.c==='gastos'){h=`<div class="ctx">${servBadge(r.servicio)}<span class="chip off">${esc(recName(r.propiedadId))}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,1)}</select><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
+    if(F.c==='gastos'){h=`<div class="ctx">${servBadge(r.servicio)}<span class="chip off">${esc(grpIds(r).length?grpNombres(r):recName(r.propiedadId))}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,1)}</select>${grpIds(r).length?'':`<label class="f" for="fnombre">Nombre del recibo (opcional)</label><input class="inp" id="fnombre" maxlength="40" placeholder="Ej. Medidor 2" value="${esc(recNom(r))}">`}<label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="150" value="${esc(notaTxt(r))}">`}
     else if(F.c==='pagos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes que paga</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,3)}</select><label class="f" for="ffecha">Fecha</label><input class="inp" type="date" id="ffecha" value="${esc(r.fecha)}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
     else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(r.fechaInicio||'')}"><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><p class="hint">Déjalo vacío si el contrato no tiene fecha de fin.</p><label class="f" for="fbaja">Fecha de baja</label><input class="inp" type="date" id="fbaja" value="${esc(r.fechaBaja||'')}"><p class="hint">${r.estado==='baja'?'Día en que salió.':'Déjala vacía mientras siga viviendo ahí. Si es una fecha futura queda programada: 3 días antes y ese día te sale un aviso en Tu día para revisar el inventario y darlo de baja. Si ya pasó, pasa directo al historial sin revisar inventario.'}</p><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
     else if(F.c==='revisiones'){const t=get('inquilinos',r.inquilinoId)||S.data.inquilinos[r.inquilinoId]||{};const pr=prop(r.propiedadId)||{};h=`<div class="box"><h3>Revisión de inventario</h3><div class="muted">${esc(pr.nombre||'')} · salida de ${esc(t.nombre||'')} · ${fechaLarga(r.fecha)}</div>${resItems(r.resultado)}${r.nota?`<p class="muted small">${esc(r.nota)}</p>`:''}</div>`}
@@ -1010,18 +1022,27 @@ const ACT={
   'dp-ok'(){const p=prop(F.id);closeSheet();commit([{c:'propiedades',r:Object.assign({},p,{eliminado:1})}],'Propiedad borrada')},
   'g-serv'(d){F.s=d.s;go(F.pid?'monto':'prop')},
   'g-prop'(d){if(F.multi){F.sel=F.sel||[];const i=F.sel.indexOf(d.id);if(i>=0)F.sel.splice(i,1);else F.sel.push(d.id);FLOWS.gasto.prop();return}F.pid=d.id;go('monto')},
+  'g-pick'(d){F.nuevo=false;F.exId=d.id;FLOWS.gasto.monto()},
+  'g-nuevo'(){F.nuevo=true;F.exId=null;FLOWS.gasto.monto();const e=document.getElementById('fnombre');if(e)e.focus()},
   'g-multi'(){F.multi=true;F.sel=[];FLOWS.gasto.prop()},
   'g-multi2'(){F.multi=true;F.sel=[F.pid];go('prop')},
   'g-next'(){const s=F.sel||[];if(!s.length)return showErr('Toca al menos un edificio.');F.pid=s[0];if(s.length===1)F.multi=false;go('monto')},
   'g-rep'(d,b){F.rep=d.n;document.querySelectorAll('[data-a="g-rep"]').forEach(x=>x.classList.toggle('on',x===b));updRep()},
   'g-save'(){const m=parseMonto();if(m==null)return;const mes=val('fmes')||curMonth();
+    if(F.multi&&F.sel&&F.sel.length>1&&F.rep==='uno'){const ids=F.sel,nt=val('fnota'),mk='§'+ids.join(',')+'§ ';
+      const ex=list('gastos').find(x=>x.servicio===F.s&&x.mes===mes&&(x.propiedadId===ids[0]||grpIds(x).some(i=>ids.includes(i))));
+      const nota=(mk+nt).slice(0,200);
+      const sv=F.s;closeSheet();commit([{c:'gastos',r:ex?Object.assign({},ex,{monto:m,nota}):{id:uid(),propiedadId:ids[0],servicio:sv,mes,monto:m,nota}}],'Listo, un solo recibo para los '+ids.length+' edificios');return}
     if(F.multi&&F.sel&&F.sel.length>1){const ids=F.sel,ps=repPartes(m,ids.length,F.rep),nt=val('fnota'),ops=[];
       ids.forEach((id,k)=>{const ex=list('gastos').find(x=>x.propiedadId===id&&x.servicio===F.s&&x.mes===mes);
         const nota=('Recibo compartido de '+ids.length+' edificios'+(F.rep==='igual'?'':' (total '+money(m)+')')+(nt?' · '+nt:'')).slice(0,200);
         ops.push({c:'gastos',r:ex?Object.assign({},ex,{monto:ps[k],nota}):{id:uid(),propiedadId:id,servicio:F.s,mes,monto:ps[k],nota}})});
       closeSheet();commit(ops,'Listo, el recibo quedó en los '+ids.length+' edificios');return}
-    const ex=list('gastos').find(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===mes);
-    const r=ex?Object.assign({},ex,{monto:m,nota:val('fnota')}):{id:uid(),propiedadId:F.pid,servicio:F.s,mes,monto:m,nota:val('fnota')};
+    const nom=val('fnombre'),ex=F.exId&&!F.nuevo?get('gastos',F.exId):null;
+    const same=list('gastos').filter(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===mes&&!grpIds(x).length&&(!ex||x.id!==ex.id));
+    if(same.find(x=>recNom(x).toLowerCase()===nom.replace(/[§¶]/g,'').trim().toLowerCase()))return showErr(nom?'Ya hay un recibo con ese nombre este mes.':'Ya hay un recibo sin nombre este mes. Ponle un nombre a este para distinguirlos.');
+    const nota=(mkNom(nom)+val('fnota')).slice(0,200);
+    const r=ex?Object.assign({},ex,{monto:m,nota}):{id:uid(),propiedadId:F.pid,servicio:F.s,mes,monto:m,nota};
     closeSheet();commit([{c:'gastos',r}],'Listo, quedó guardado')},
   'p-quien'(d){F.tid=d.id;go('monto')},
   'p-save'(){const m=parseMonto();if(m==null)return;const t=get('inquilinos',F.tid);const st=estadoRenta(t);
@@ -1151,8 +1172,8 @@ const ACT={
     const r=ex?Object.assign({},ex,{texto:txt,fecha:today()}):{id:uid(),clave:F.clave,texto:txt,fecha:today()};closeSheet();commit([{c:'comentarios',r}],'Comentario guardado')},
   edit(d){const r=get(d.c,d.id);if(!r)return;if(!canEdit(d.c,r)){toast('Solo el propietario puede corregir esto',null,true);return}startFlow('edit',{c:d.c,id:d.id})},
   'e-save'(){const r=Object.assign({},get(F.c,F.id));
-    if(F.c==='gastos'||F.c==='pagos'){const m=parseMonto();if(m==null)return;r.monto=m;r.mes=val('fmes');r.nota=val('fnota');if(F.c==='pagos')r.fecha=val('ffecha')||r.fecha;
-      if(F.c==='gastos'){const dup=list('gastos').find(x=>x.id!==r.id&&x.propiedadId===r.propiedadId&&x.servicio===r.servicio&&x.mes===r.mes);if(dup)return showErr('Ya hay un recibo de ese mes. Corrige ese en su lugar.')}}
+    if(F.c==='gastos'||F.c==='pagos'){const m=parseMonto();if(m==null)return;r.monto=m;r.mes=val('fmes');r.nota=(F.c==='gastos'?(grpIds(r).length?'§'+grpIds(r).join(',')+'§ ':mkNom(val('fnombre'))):'')+val('fnota');if(F.c==='pagos')r.fecha=val('ffecha')||r.fecha;
+      if(F.c==='gastos'){const dup=list('gastos').find(x=>x.id!==r.id&&x.propiedadId===r.propiedadId&&x.servicio===r.servicio&&x.mes===r.mes&&!grpIds(x).length&&recNom(x).toLowerCase()===recNom(r).toLowerCase());if(dup)return showErr(recNom(r)?'Ya hay un recibo con ese nombre ese mes.':'Ya hay un recibo sin nombre ese mes. Ponle un nombre a uno para distinguirlos.')}}
     else if(F.c==='inquilinos'){const tel=val('ftel').replace(/\D/g,'');if(val('fnom').length<2)return showErr('Escribe el nombre.');if(tel&&!telWa(tel))return showErr('El WhatsApp debe tener 10 dígitos.');const rn=num(val('fren'));if(!(rn>0))return showErr('Renta no válida.');
       const ini=val('fini'),fin=val('ffin'),baja=val('fbaja');
       if(!ini)return showErr('Pon la fecha de inicio del contrato.');
@@ -1290,7 +1311,7 @@ function itemHtml0(x){
 }
 function feed(){
   const out=[];
-  for(const g of list('gastos')){const p=get('propiedades',g.propiedadId)||get('predios',g.propiedadId);out.push({c:'gastos',r:g,ic:SERV[g.servicio].i,cls:'s-'+g.servicio,t:SERV[g.servicio].n+' · '+(p?p.nombre:'—'),s:mesLargo(g.mes)+(g.nota?' · '+g.nota:''),amt:money(g.monto),f:'gastos',d:fmtD.format(new Date(g.updatedAt||Date.now())),m:g.mes,pid:g.propiedadId})}
+  for(const g of list('gastos')){const p=get('propiedades',g.propiedadId)||get('predios',g.propiedadId);out.push({c:'gastos',r:g,ic:SERV[g.servicio].i,cls:'s-'+g.servicio,t:SERV[g.servicio].n+' · '+(grpIds(g).length?grpNombres(g):(p?p.nombre:'—'))+(recNom(g)?' · '+recNom(g):''),s:mesLargo(g.mes)+(notaTxt(g)?' · '+notaTxt(g):''),amt:money(g.monto),f:'gastos',d:fmtD.format(new Date(g.updatedAt||Date.now())),m:g.mes,pid:g.propiedadId})}
   for(const x of list('pagos')){const t=get('inquilinos',x.inquilinoId)||S.data.inquilinos[x.inquilinoId]||{};out.push({c:'pagos',r:x,ic:'cash',cls:'s-pago',t:'Pago de '+(t.nombre||'—'),s:'Renta de '+mesLargo(x.mes)+' · '+fechaLarga(x.fecha),amt:money(x.monto),f:'pagos',d:x.fecha||'',m:(x.fecha||'').slice(0,7),pid:t.propiedadId})}
   for(const t of list('inquilinos')){const p=prop(t.propiedadId)||S.data.propiedades[t.propiedadId]||{};out.push({c:'inquilinos',r:t,ic:t.estado==='activo'?'userPlus':'userMinus',cls:'s-inq',t:(t.estado==='activo'?'Alta: ':'Baja: ')+t.nombre,s:(p.nombre||'')+' · '+(t.estado==='activo'?'desde el '+fechaLarga(t.fechaInicio):'salió el '+fechaLarga(t.fechaBaja)),amt:'',f:'inquilinos',d:(t.estado==='activo'?t.fechaInicio:t.fechaBaja)||'',m:((t.estado==='activo'?t.fechaInicio:t.fechaBaja)||'').slice(0,7),pid:t.propiedadId})}
   for(const a of list('avisos')){const t=get('inquilinos',a.inquilinoId)||S.data.inquilinos[a.inquilinoId]||{};out.push({c:'avisos',r:a,ic:'chat',cls:'s-aviso',t:'Aviso a '+(t.nombre||'—'),s:ETAPA_TXT[a.etapa]+' · '+fechaLarga(a.fecha),amt:'',f:'avisos',d:a.fecha||'',m:(a.fecha||'').slice(0,7),pid:t.propiedadId})}
@@ -1391,7 +1412,7 @@ function pdet(id){
   const meses=[...new Set(gs.map(g=>g.mes))].sort().slice(-4);
   if(meses.length){
     const sv=Object.keys(SERV).filter(s=>isTarget(p,s));
-    h+=`<div class="box"><h3>Recibos recientes</h3><table><tr><th>Mes</th>${sv.map(s=>`<th>${SERV[s].n}</th>`).join('')}</tr>${meses.reverse().map(m=>`<tr><td style="text-transform:capitalize">${mesCorto(m)} ${m.slice(2,4)}</td>${sv.map(s=>{const g=gs.find(x=>x.mes===m&&x.servicio===s);return`<td>${g?money(g.monto):'—'}</td>`}).join('')}</tr>`).join('')}</table></div>`;
+    h+=`<div class="box"><h3>Recibos recientes</h3><table><tr><th>Mes</th>${sv.map(s=>`<th>${SERV[s].n}</th>`).join('')}</tr>${meses.reverse().map(m=>`<tr><td style="text-transform:capitalize">${mesCorto(m)} ${m.slice(2,4)}</td>${sv.map(s=>{const gg=gs.filter(x=>x.mes===m&&x.servicio===s);return`<td>${gg.length?money(gg.reduce((a,x)=>a+ +x.monto,0)):'—'}</td>`}).join('')}</tr>`).join('')}</table></div>`;
   }
   const prev=list('inquilinos').filter(x=>x.propiedadId===id&&x.estado!=='activo').sort((a,b)=>a.fechaBaja<b.fechaBaja?1:-1);
   if(prev.length)h+=`<div class="box"><h3>Inquilinos anteriores</h3>${prev.map(x=>`<div class="small" style="padding:4px 0">${esc(x.nombre)} · ${fechaLarga(x.fechaInicio)} ${x.fechaInicio.slice(0,4)} – ${fechaLarga(x.fechaBaja)} ${String(x.fechaBaja).slice(0,4)}</div>`).join('')}</div>`;
@@ -1403,7 +1424,7 @@ function pdet(id){
 function cambios(mes){
   const out=[];
   for(const p of propsOrd().concat(list('predios')))for(const s of Object.keys(SERV)){
-    const ser=list('gastos').filter(g=>g.propiedadId===p.id&&g.servicio===s).sort((a,b)=>a.mes<b.mes?-1:1);
+    const ser=serieGasto(p.id,s);
     const cur=ser.find(g=>g.mes===mes);if(!cur)continue;
     const prev=ser.filter(g=>g.mes<mes).slice(-6).map(g=>+g.monto);
     if(prev.length<2){out.push({p,s,cur,learning:true});continue}
@@ -1439,7 +1460,7 @@ function resumen(){
   const normal=ch.filter(x=>!x.learning&&Math.abs(x.pct)<0.15).length,learn=ch.filter(x=>x.learning).length;
   const coms=list('comentarios');
   // proyección del siguiente mes
-  let proy=0,proyN=0;for(const p of list('propiedades'))for(const s of Object.keys(SERV)){if(!hasServ(p,s))continue;const v=list('gastos').filter(g=>g.propiedadId===p.id&&g.servicio===s&&g.mes<=m).sort((a,b)=>a.mes<b.mes?-1:1).slice(-6).map(g=>+g.monto);if(v.length>=2){proy+=median(v);proyN++}}
+  let proy=0,proyN=0;for(const p of list('propiedades'))for(const s of Object.keys(SERV)){if(!hasServ(p,s))continue;const v=serieGasto(p.id,s,m).slice(-6).map(g=>g.monto);if(v.length>=2){proy+=median(v);proyN++}}
   const dif=tp.total?(tmc.total-tp.total)/tp.total:null;
   const pct=rm.esperado?Math.min(100,Math.round(rm.cobrado/rm.esperado*100)):0;
   let h=`<div class="mnav"><button class="btn sm" data-a="mprev" aria-label="Mes anterior">${I.back}</button><b>${mesLargo(m)}</b><button class="btn sm" data-a="mnext" aria-label="Mes siguiente" ${m>=curMonth()?'disabled style="opacity:.4"':''}><span style="transform:rotate(180deg);display:flex">${I.back}</span></button></div><div class="grid2">`;
@@ -1505,7 +1526,7 @@ function csvCell(v){let s=String(v==null?'':v);if(/^[=+\-@]/.test(s))s="'"+s;ret
 function exportCSV(c){
   const rows=list(c);const pn=id=>(S.data.propiedades[id]||S.data.predios[id]||{}).nombre||'';const tn=id=>(S.data.inquilinos[id]||{}).nombre||'';
   let head,body;
-  if(c==='gastos'){head=['Mes','Propiedad','Servicio','Monto','Nota'];body=rows.sort((a,b)=>a.mes<b.mes?-1:1).map(r=>[r.mes,pn(r.propiedadId),SERV[r.servicio].n,r.monto,r.nota])}
+  if(c==='gastos'){head=['Mes','Propiedad','Servicio','Monto','Nota'];body=rows.sort((a,b)=>a.mes<b.mes?-1:1).map(r=>[r.mes,pn(r.propiedadId),SERV[r.servicio].n,r.monto,(grpIds(r).length?'Compartido: '+grpNombres(r)+' · ':'')+(recNom(r)?recNom(r)+' · ':'')+notaTxt(r)])}
   else if(c==='pagos'){head=['Mes','Fecha','Inquilino','Propiedad','Monto','Nota'];body=rows.sort((a,b)=>a.fecha<b.fecha?-1:1).map(r=>[r.mes,r.fecha,tn(r.inquilinoId),pn(r.propiedadId),r.monto,r.nota])}
   else{head=['Nombre','Propiedad','WhatsApp','Renta','Día de pago','Entrada','Salida','Estado'];body=rows.map(r=>[r.nombre,pn(r.propiedadId),r.telefono,r.renta,r.diaPago,r.fechaInicio,r.fechaBaja,r.estado])}
   const csv='﻿'+[head,...body].map(r=>r.map(csvCell).join(',')).join('\r\n');
