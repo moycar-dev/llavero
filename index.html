@@ -347,7 +347,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.1', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -445,6 +445,7 @@ function addYear(f){const[y,m,d]=f.split('-');return (Number(y)+1)+'-'+m+'-'+(m=
 function finHint(ini,fin,dur){if(dur==='ind'||!fin)return'Sin fecha de fin: no te va a avisar de vencimientos.';if(fin<=ini)return'La fecha de fin debe ser después del inicio.';if(fin<today())return'Esa fecha de fin ya pasó, así que el contrato aparecerá como vencido. Si el inquilino sigue y el contrato ya se renovó, pon la fecha de fin vigente con «Otra fecha» o elige «Sin fecha de fin».';return'Termina el '+fechaCompleta(fin)+'.'}
 function updFinHint(){const h=document.getElementById('fhint');if(h)h.textContent=finHint(val('fini')||today(),val('ffin'),F&&F.dur)}
 function chipContrato(t){if(!t||!t.fechaFin)return'';const d=dayDiff(today(),t.fechaFin);if(d<0)return'<span class="chip bad">Contrato vencido</span>';if(d<=60)return`<span class="chip warn">Contrato vence en ${dd(d)}</span>`;return`<span class="chip off">Contrato hasta el ${fechaLarga(t.fechaFin)}</span>`}
+function chipSalida(t){if(!t||t.estado!=='activo'||!t.fechaBaja)return'';const d=dayDiff(today(),t.fechaBaja);return d<0?`<span class="chip bad">Debió salir hace ${dd(-d)}</span>`:d===0?'<span class="chip warn">Sale hoy</span>':`<span class="chip warn">Sale el ${fechaLarga(t.fechaBaja)}</span>`}
 function chipPredial(r){if(!r||!r.predialFecha)return'';const d=dayDiff(today(),r.predialFecha);if(d<0)return'<span class="chip bad">Predial vencido</span>';if(d<=30)return`<span class="chip warn">Predial vence en ${dd(d)}</span>`;return`<span class="chip off">Predial: ${fechaLarga(r.predialFecha)}</span>`}
 function predioDe(p){return p&&p.predioId?get('predios',p.predioId):null}
 
@@ -794,7 +795,7 @@ FLOWS.baja={
   conf(){
     const t=get('inquilinos',F.tid),inv=invDe(t.propiedadId,'en');
     sheet(shead('¿'+esc(firstName(t.nombre))+' deja '+esc(prop(t.propiedadId).nombre)+'?')+`<p class="muted">La propiedad quedará como desocupada. Sus pagos y datos se quedan en el historial.${inv.length?' Antes de terminar, revisas el inventario de la propiedad.':''}</p>${inv.length?'':'<p class="hint">Esta propiedad no tiene inventario anotado. Puedes agregarlo en Propiedades para revisarlo la próxima vez.</p>'}
-      <details class="more"><summary class="btn sm">${I.edit} Cambiar fecha de salida</summary><label class="f" for="ffecha">Fecha de salida</label><input class="inp" type="date" id="ffecha" value="${today()}"></details>
+      <details class="more"${t.fechaBaja&&t.estado==='activo'?' open':''}><summary class="btn sm">${I.edit} Cambiar fecha de salida</summary><label class="f" for="ffecha">Fecha de salida</label><input class="inp" type="date" id="ffecha" value="${t.fechaBaja&&t.estado==='activo'?t.fechaBaja:today()}"></details>
       <div class="sep"></div>${inv.length?`<button class="btn pri big full" data-a="b-next">${I.list} Continuar: revisar inventario (${inv.length})</button>`:`<button class="btn danger big full" data-a="b-save">${I.userMinus} Sí, dar de baja</button>`}`);
   },
   chk(){
@@ -967,7 +968,7 @@ FLOWS.edit={
     let h='';
     if(F.c==='gastos'){h=`<div class="ctx">${servBadge(r.servicio)}<span class="chip off">${esc(recName(r.propiedadId))}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,1)}</select><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
     else if(F.c==='pagos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes que paga</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,3)}</select><label class="f" for="ffecha">Fecha</label><input class="inp" type="date" id="ffecha" value="${esc(r.fecha)}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
-    else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(r.fechaInicio||'')}"><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><p class="hint">Déjalo vacío si el contrato no tiene fecha de fin.</p><label class="f" for="fbaja">Fecha de baja</label><input class="inp" type="date" id="fbaja" value="${esc(r.fechaBaja||'')}"><p class="hint">${r.estado==='baja'?'Día en que salió.':'Déjala vacía mientras siga viviendo ahí. Si la pones, pasa al historial y la propiedad queda libre (para revisar el inventario usa «Dar de baja»).'}</p><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
+    else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(r.fechaInicio||'')}"><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><p class="hint">Déjalo vacío si el contrato no tiene fecha de fin.</p><label class="f" for="fbaja">Fecha de baja</label><input class="inp" type="date" id="fbaja" value="${esc(r.fechaBaja||'')}"><p class="hint">${r.estado==='baja'?'Día en que salió.':'Déjala vacía mientras siga viviendo ahí. Si es una fecha futura queda programada: 3 días antes y ese día te sale un aviso en Tu día para revisar el inventario y darlo de baja. Si ya pasó, pasa directo al historial sin revisar inventario.'}</p><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
     else if(F.c==='revisiones'){const t=get('inquilinos',r.inquilinoId)||S.data.inquilinos[r.inquilinoId]||{};const pr=prop(r.propiedadId)||{};h=`<div class="box"><h3>Revisión de inventario</h3><div class="muted">${esc(pr.nombre||'')} · salida de ${esc(t.nombre||'')} · ${fechaLarga(r.fecha)}</div>${resItems(r.resultado)}${r.nota?`<p class="muted small">${esc(r.nota)}</p>`:''}</div>`}
     else if(F.c==='avisos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="box"><h3>Aviso a ${esc(t.nombre||'')}</h3><div class="muted">${ETAPA_TXT[r.etapa]} · ${mesLargo(r.mes)} · enviado el ${fechaLarga(r.fecha)}</div></div>`}
     const editable=!['avisos','revisiones'].includes(F.c);
@@ -1158,9 +1159,8 @@ const ACT={
       if(fin&&fin<=ini)return showErr('El contrato debe terminar después de su inicio.');
       if(r.estado==='baja'){if(!baja)return showErr('Pon la fecha de baja.')}
       if(baja&&baja<ini)return showErr('La baja no puede ser antes del inicio del contrato.');
-      if(r.estado==='activo'&&baja&&baja>today())return showErr('La fecha de baja no puede ser futura. Usa «Dar de baja» el día que salga.');
       Object.assign(r,{nombre:val('fnom'),telefono:tel.slice(-10),renta:rn,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:fin,fechaBaja:baja,notas:val('fnota')});
-      if(r.estado==='activo'&&baja)r.estado='baja'}
+      if(r.estado==='activo'&&baja&&baja<=today())r.estado='baja'}
     const cc=F.c;closeSheet();commit([{c:cc,r}],'Cambios guardados')},
   'e-del'(){go('del')},
   'e-delok'(){const r=get(F.c,F.id);const c=F.c;closeSheet();commit([{c,r:Object.assign({},r,{eliminado:1})}],'Registro borrado')},
@@ -1245,11 +1245,12 @@ function render(){
   if(F&&F.flow==='dia'&&!$('#sheet').hidden)diaSheet(true);
 }
 
-function itemKey(x,M){switch(x.k){case'contrato':return'c|'+x.t.id+'|'+x.t.fechaFin;case'predial':return'p|'+x.r.id+'|'+x.r.predialFecha;case'mant':return'm|'+x.m.id+'|'+x.m.fecha;case'aviso':return'a|'+x.t.id+'|'+x.st.etapa+'|'+x.st.mes;default:return'r|'+x.s+'|'+M}}
+function itemKey(x,M){switch(x.k){case'salida':return's|'+x.t.id+'|'+x.t.fechaBaja;case'contrato':return'c|'+x.t.id+'|'+x.t.fechaFin;case'predial':return'p|'+x.r.id+'|'+x.r.predialFecha;case'mant':return'm|'+x.m.id+'|'+x.m.fecha;case'aviso':return'a|'+x.t.id+'|'+x.st.etapa+'|'+x.st.mes;default:return'r|'+x.s+'|'+M}}
 function tuDia(){
   const items=[],M=curMonth(),hoy=today();
   for(const t of (canWA()?activos():[])){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
   for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60&&dias>=-30)items.push({k:'contrato',t,dias,done:false})}
+  for(const t of activos()){if(!t.fechaBaja)continue;const dias=dayDiff(hoy,t.fechaBaja);if(dias<=3)items.push({k:'salida',t,dias,done:false})}
   if(isOwner()){
     const addP=(c,r)=>{if(!r.predialFecha)return;const dias=dayDiff(hoy,r.predialFecha);if(dias<=30)items.push({k:'predial',c,r,n:r.nombre,dias,done:false})};
     list('predios').forEach(r=>addP('predios',r));list('propiedades').forEach(r=>addP('propiedades',r));
@@ -1270,6 +1271,8 @@ function diaSheet(keep){
 }
 function itemHtml(x){const h=itemHtml0(x);const i=h.lastIndexOf('</div>');return h.slice(0,i)+`<button class="btn sm xb" data-a="desc" data-k="${esc(x.key||'')}" aria-label="Quitar este aviso">${I.x}</button>`+h.slice(i)}
 function itemHtml0(x){
+  if(x.k==='salida'){const late=x.dias<0,p=prop(x.t.propiedadId)||{},n=invDe(x.t.propiedadId,'en').length;const when=late?'Debió salir hace '+dd(-x.dias):x.dias===0?'Sale hoy':x.dias===1?'Sale mañana':'Sale en '+dd(x.dias)+' ('+fechaLarga(x.t.fechaBaja)+')';
+    return`<div class="item"><div class="ic ${late||x.dias===0?'late':'wait'}">${I.userMinus}</div><div class="it"><b>Sale ${esc(firstName(x.t.nombre))}: revisa el inventario</b><span>${esc(p.nombre||'')} · ${when}${n?' · '+n+' artículo'+(n>1?'s':''):''}</span></div><button class="btn sm" data-a="baja" data-id="${x.t.id}">Dar de baja</button></div>`}
   if(x.k==='predial'){const late=x.dias<0;const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.r.predialFecha)+')';
     return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.home}</div><div class="it"><b>Predial de ${esc(x.n)}</b><span>${x.r.predialMonto?money(x.r.predialMonto)+' · ':''}${when}</span></div><button class="btn sm" data-a="pred-pag" data-c="${x.c}" data-id="${x.r.id}">${I.check} Ya pagué</button></div>`}
   if(x.k==='contrato'){const late=x.dias<0;const p=prop(x.t.propiedadId)||{};const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.t.fechaFin)+')';
@@ -1371,7 +1374,7 @@ function pdet(id){
   const p=prop(id);if(!p)return closeSheet();const t=inqDe(id);const st=t?estadoRenta(t):null;
   let h=shead(esc(p.nombre),`<span class="chip off">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${chipIncl(p)}${p.direccion?`<span class="chip off">${esc(p.direccion)}</span>`:''}`)+(p.notas?`<p class="muted" style="margin:-4px 2px 10px;font-style:italic">${esc(p.notas)}</p>`:'');
   if(t){
-    h+=`<div class="box"><div class="ph"><h3>${esc(t.nombre)}</h3>${chipRenta(st)}</div><div class="muted">${money(t.renta)} al mes · paga el día ${esc(t.diaPago)} · desde el ${fechaLarga(t.fechaInicio)}</div><div class="muted">${t.telefono?'WhatsApp '+esc(t.telefono):'Sin WhatsApp registrado'}</div><div class="ps" style="margin-top:8px">${chipContrato(t)}</div>
+    h+=`<div class="box"><div class="ph"><h3>${esc(t.nombre)}</h3>${chipRenta(st)}</div><div class="muted">${money(t.renta)} al mes · paga el día ${esc(t.diaPago)} · desde el ${fechaLarga(t.fechaInicio)}</div><div class="muted">${t.telefono?'WhatsApp '+esc(t.telefono):'Sin WhatsApp registrado'}</div><div class="ps" style="margin-top:8px">${chipSalida(t)}${chipContrato(t)}</div>
       <div class="sep"></div><div class="row">${canWA()?`<button class="btn wa" data-a="wa" data-id="${t.id}" ${st&&st.etapa?`data-e="${st.etapa}"`:''}> ${I.chat} Mensaje de renta</button>`:''}<button class="btn" data-a="pago" data-id="${t.id}">${I.cash} Registrar pago</button></div>
       ${true?`<div class="sep"></div><div class="row"><button class="btn sm" data-a="edit" data-c="inquilinos" data-id="${t.id}">${I.edit} Corregir datos</button><button class="btn sm" data-a="renov" data-id="${t.id}">${I.refresh} Renovar contrato</button><button class="btn sm" data-a="baja" data-id="${t.id}">${I.userMinus} Dar de baja</button></div>`:''}</div>`;
   }else{
