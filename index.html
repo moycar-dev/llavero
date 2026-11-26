@@ -347,7 +347,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.5', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.6', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -592,8 +592,8 @@ function mensajeInv(i){const c=cfg(),p=prop(i.propiedadId)||{};return'Hola'+(c.p
 function qty(i){const n=Number(i&&i.cantidad);return n>0?n:1}
 /* Una sola vez: si la cantidad estaba escrita en la descripción ("4", "2 camas"), pasa al campo cantidad */
 /* Limpieza única de contratos: los activos con fecha de fin vencida hace más de 30 días pasan a «sin fecha de fin».
-   La fecha anterior se guarda en la nota del inquilino. Apagada hasta confirmar la copia de la Sheet. */
-const MIGRAR_CONTRATOS=false;
+   La fecha anterior se guarda en la nota del inquilino. Se aplica una sola vez por registro. */
+const MIGRAR_CONTRATOS=true;
 function migrarContratos(){if(DEMO||!MIGRAR_CONTRATOS||!S.conn||!isOwner())return;let n=0;const hoy=today();
   for(const x of list('inquilinos')){if(x.estado!=='activo'||!x.fechaFin||dayDiff(x.fechaFin,hoy)<=30)continue;
     const nota=((x.notas?x.notas+' | ':'')+'Fecha de fin anterior: '+x.fechaFin+' (quitada por estar vencida hace más de 30 días)').slice(-300);
