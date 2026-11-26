@@ -97,6 +97,7 @@ section{margin-bottom:32px}
 .it span{display:block;font-size:16px;color:var(--muted)}
 .item .btn.xb{padding:6px 10px;min-width:46px;color:var(--muted);background:transparent;border-color:transparent;margin-left:-6px}
 .resum{margin-top:12px;font-size:17px;line-height:1.5;color:var(--ink)}
+.gtit{font-size:17px;margin:14px 2px 8px;color:var(--ink)}
 .opt.sel{border-color:var(--oro);background:var(--oro-l)}
 .item .btn{flex:none;min-height:46px;padding:6px 16px;font-size:17px}
 .item .btn svg{width:20px;height:20px}
@@ -347,7 +348,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.6', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.7', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -745,7 +746,10 @@ FLOWS.pago={
   quien(){
     const ts=activos().map(t=>({t,st:estadoRenta(t)})).sort((a,b)=>(a.st?a.st.dias:999)-(b.st?b.st.dias:999));
     if(!ts.length){sheet(shead('Aún no hay inquilinos')+'<p class="muted">Registra un inquilino primero.</p>');return}
-    sheet(shead('¿Quién pagó?')+'<div class="opts">'+ts.map(({t,st})=>`<button class="opt" data-a="p-quien" data-id="${t.id}"><span class="ic s-pago">${I.cash}</span><span class="it">${esc(t.nombre)}<span>${esc(prop(t.propiedadId).nombre)} · ${money(t.renta)}</span></span>${chipRenta(st)}</button>`).join('')+'</div>');
+    const row=({t,st})=>`<button class="opt" data-a="p-quien" data-id="${t.id}"><span class="ic s-pago">${I.cash}</span><span class="it">${esc(t.nombre)}<span>${esc(prop(t.propiedadId).nombre)} · ${money(t.renta)}</span></span>${chipRenta(st)}</button>`;
+    const falta=ts.filter(x=>x.st&&x.st.dias<=0),pronto=ts.filter(x=>x.st&&x.st.dias>0&&x.st.dias<=5),resto=ts.filter(x=>!falta.includes(x)&&!pronto.includes(x));
+    const grp=(tit,arr)=>arr.length?`<h3 class="gtit">${tit} (${arr.length})</h3><div class="opts">${arr.map(row).join('')}</div>`:'';
+    sheet(shead('¿Quién pagó?')+(falta.length||pronto.length?'':'<p class="muted">Nadie tiene un pago pendiente por ahora. Si alguien paga por adelantado, búscalo abajo.</p>')+grp('Faltan por pagar',falta)+grp('Pronto',pronto)+(resto.length?`<details class="more"${falta.length||pronto.length?'':' open'}><summary class="btn sm">Al corriente y próximos (${resto.length})</summary><div class="opts" style="margin-top:10px">${resto.map(row).join('')}</div></details>`:''));
   },
   monto(){
     const t=get('inquilinos',F.tid),st=estadoRenta(t);const mes=F.mesSel||(st?st.mes:curMonth());
@@ -763,7 +767,7 @@ FLOWS.pago.ok=function(){
   sheet(`<div class="shead"><span></span><button class="btn sm" data-a="close">${I.x} Cerrar</button></div><h2 class="q">Pago guardado</h2><div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span><span class="chip off">${money(pg.monto)} · ${mesLargo(pg.mes)}</span></div>
     ${canWA()?`<label class="f">Recibo para ${esc(firstName(t.nombre))}:</label><div class="waprev">${esc(mensajePago(t,pg))}</div>`:''}
     ${t.telefono?'':'<p class="hint">Este inquilino no tiene WhatsApp registrado.</p>'}
-    <div class="sep"></div>${canWA()?`<button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Enviar recibo por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`:`<p class="hint">El propietario es quien envía la confirmación por WhatsApp.</p><button class="btn pri big full" data-a="close">Listo</button>`}`);
+    <div class="sep"></div>${canWA()?`<button class="btn wa big full" data-a="pg-wa" data-id="${pg.id}">${I.chat} Enviar recibo por WhatsApp</button><div class="sep"></div><button class="btn full" data-a="p-otro">${I.plus} Registrar otro pago</button><div class="sep"></div><button class="btn full" data-a="close">Listo, no enviar</button>`:`<p class="hint">El propietario es quien envía la confirmación por WhatsApp.</p><button class="btn pri big full" data-a="p-otro">${I.plus} Registrar otro pago</button><div class="sep"></div><button class="btn full" data-a="close">Listo</button>`}`);
 };
 /* Alta de inquilino */
 FLOWS.alta={
@@ -1066,6 +1070,7 @@ const ACT={
     const nota=(mkNom(nom)+val('fnota')).slice(0,200);
     const r=ex?Object.assign({},ex,{monto:m,nota}):{id:uid(),propiedadId:F.pid,servicio:F.s,mes,monto:m,nota};
     closeSheet();commit([{c:'gastos',r}],'Listo, quedó guardado')},
+  'p-otro'(){closeSheet();startFlow('pago',{})},
   'p-quien'(d){F.tid=d.id;go('monto')},
   'p-save'(){const m=parseMonto();if(m==null)return;const t=get('inquilinos',F.tid);const st=estadoRenta(t);
     const r={id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,mes:val('fmes')||(st?st.mes:curMonth()),fecha:val('ffecha')||today(),monto:m,nota:val('fnota')};
