@@ -347,7 +347,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.4', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.5', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -591,6 +591,14 @@ function mensajeMant(t,m,fin){
 function mensajeInv(i){const c=cfg(),p=prop(i.propiedadId)||{};return'Hola'+(c.propietario?' '+c.propietario:'')+', te aviso que se retirará "'+(qty(i)>1?qty(i)+' × ':'')+i.nombre+'" de '+(p.nombre||'la propiedad')+(i.motivoRetiro?' ('+i.motivoRetiro+')':'')+'.'+(S.deviceName?' — '+S.deviceName:'')}
 function qty(i){const n=Number(i&&i.cantidad);return n>0?n:1}
 /* Una sola vez: si la cantidad estaba escrita en la descripción ("4", "2 camas"), pasa al campo cantidad */
+/* Limpieza única de contratos: los activos con fecha de fin vencida hace más de 30 días pasan a «sin fecha de fin».
+   La fecha anterior se guarda en la nota del inquilino. Apagada hasta confirmar la copia de la Sheet. */
+const MIGRAR_CONTRATOS=false;
+function migrarContratos(){if(DEMO||!MIGRAR_CONTRATOS||!S.conn||!isOwner())return;let n=0;const hoy=today();
+  for(const x of list('inquilinos')){if(x.estado!=='activo'||!x.fechaFin||dayDiff(x.fechaFin,hoy)<=30)continue;
+    const nota=((x.notas?x.notas+' | ':'')+'Fecha de fin anterior: '+x.fechaFin+' (quitada por estar vencida hace más de 30 días)').slice(-300);
+    put('inquilinos',Object.assign({},x,{fechaFin:'',notas:nota}));n++}
+  if(n){afterChange();toast('Quité la fecha de fin de '+n+' contrato'+(n>1?'s':'')+' vencido'+(n>1?'s':'')+' hace más de 30 días. La fecha anterior quedó en la nota de cada inquilino.')}}
 function migrarInv(){if(DEMO||!S.conn)return;let n=0;for(const i of list('inventario')){if(i.cantidad!==''&&i.cantidad!=null&&Number(i.cantidad)>0)continue;const d=String(i.descripcion||'').trim();let m=d.match(/^(\d{1,4})$/),q=null,rest='';if(m){q=+m[1]}else{m=d.match(/^(\d{1,4})\s+(\S.*)$/);if(m){q=+m[1];rest=m[2]}}if(!q)continue;put('inventario',Object.assign({},i,{cantidad:q,descripcion:rest}));n++}if(n)afterChange()}
 function invDe(pid,est){return list('inventario').filter(i=>i.propiedadId===pid&&(!est||i.estado===est)).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))}
 function resItems(str){return String(str||'').split('|').filter(Boolean).map(x=>{const i=x.lastIndexOf('=');const v=RES[x.slice(i+1)]||RES.ok;return`<div class="tn"><span class="it"><b>${esc(x.slice(0,i))}</b></span><span class="chip ${v[1]}">${v[0]}</span></div>`}).join('')}
@@ -646,7 +654,7 @@ async function sync(manual){
         if(loc){nd[c][id]=loc;keep.push(k)}}
       S.data=nd;S.pend=keep;S.rol=j.rol;
       if(S.configDirty===cfgSent){S.configDirty=0;if(j.config)S.config=j.config}
-      S.lastSync=Date.now();S.status='ok';S.err=null;migrarInv();
+      S.lastSync=Date.now();S.status='ok';S.err=null;migrarInv();migrarContratos();
       if(j.rejected&&j.rejected.length&&manual!==false)toast('Algunos cambios no se permitieron con tu tipo de acceso',null,true);
     }
   }catch(e){S.status='offline'}
@@ -900,8 +908,8 @@ FLOWS.coment={
 /* Mantenimientos */
 FLOWS.mant={
   start(){
-    if(F.id){const m=get('mantenimientos',F.id);if(!m)return closeSheet();F.destino=m.destino;F.msv=mantSv(m);F.step='det';this.det();return}
-    F.msv=[];if(F.destino){F.step='form';this.form();return}
+    if(F.id){const m=get('mantenimientos',F.id);if(!m)return closeSheet();F.destino=m.destino;F.msv=mantSv(m);F.modo=m.estado==='hecho'?'hecho':'plan';F.step='det';this.det();return}
+    F.msv=[];F.modo=F.modo||'hecho';if(F.destino){F.step='form';this.form();return}
     F.step='donde';this.donde();
   },
   donde(){
@@ -916,15 +924,29 @@ FLOWS.mant={
     sheet(shead('¿Cuál departamento?')+'<div class="opts">'+us.map(p=>`<button class="opt" data-a="m-donde" data-d="p:${p.id}"><span class="ic s-mant">${I.home}</span><span class="it">${esc(p.nombre)}<span>${inqDe(p.id)?esc(inqDe(p.id).nombre):'Desocupado'}</span></span></button>`).join('')+'</div>');
   },
   form(){
-    const m=F.id?get('mantenimientos',F.id):{};
-    sheet(shead(F.id?'Corregir mantenimiento':'¿Qué se va a hacer?',`<span class="chip off">${esc(mantNombre({destino:F.destino}))}</span>`)+
-      `<label class="f" for="fmot">Motivo</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Reparar fuga del baño" value="${esc(m.motivo||'')}" data-focus>
-      <div class="two"><div><label class="f" for="ffecha">Día</label><input class="inp" type="date" id="ffecha" value="${esc(m.fecha||today())}"></div><div><label class="f" for="fhor">Horario (opcional)</label><input class="inp" id="fhor" maxlength="50" placeholder="de 10 a 2 pm" value="${esc(m.horario||'')}"></div></div>
+    const m=F.id?get('mantenimientos',F.id):{};const T=F.tmp||{};F.tmp=null;
+    const hecho=F.modo!=='plan';
+    const modo=F.id?'':`<label class="f">¿Ya se hizo este trabajo?</label><div class="seg"><button class="btn sm${hecho?' on':''}" data-a="m-modo" data-n="hecho">Sí, ya se hizo</button><button class="btn sm${hecho?'':' on'}" data-a="m-modo" data-n="plan">Es para después</button></div>`;
+    const v=(k,d)=>esc(T[k]!=null?T[k]:(m[d||k]!=null?m[d||k]:''));
+    if(hecho){
+      sheet(shead(F.id?'Corregir mantenimiento':'¿Qué se hizo?',`<span class="chip off">${esc(mantNombre({destino:F.destino}))}</span>`)+modo+
+        `<label class="f" for="fmot">¿Qué se hizo?</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Reparó la fuga del baño" value="${v('fmot','motivo')}" data-focus>
+        <label class="f" for="ffecha">Día en que se hizo</label><input class="inp" type="date" id="ffecha" value="${esc(T.ffecha||m.fecha||today())}">
+        <label class="f" for="fcosto">¿Cuánto costó?</label><div class="money"><span>$</span><input id="fcosto" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(T.fcosto!=null?T.fcosto:(m.costo===''||m.costo==null?'':m.costo))}"></div>
+        <label class="f" for="fprov">¿Quién lo hizo? (opcional)</label><input class="inp" id="fprov" maxlength="80" placeholder="Nombre de la persona o empresa" value="${v('fprov','proveedor')}">
+        <details class="more"><summary class="btn sm">${I.edit} Teléfono y nota</summary>
+        <label class="f" for="ftelp">Su teléfono (opcional)</label><input class="inp" id="ftelp" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${v('ftelp','telProveedor')}"><p class="hint">Sirve para pedirle garantía después.</p>
+        <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${v('fnota','nota')}"></details>
+        <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="m-save">${I.check} Guardar</button>`);
+      return}
+    sheet(shead(F.id?'Corregir mantenimiento':'¿Qué se va a hacer?',`<span class="chip off">${esc(mantNombre({destino:F.destino}))}</span>`)+modo+
+      `<label class="f" for="fmot">Motivo</label><input class="inp" id="fmot" maxlength="120" placeholder="Ej. Reparar fuga del baño" value="${v('fmot','motivo')}" data-focus>
+      <div class="two"><div><label class="f" for="ffecha">Día</label><input class="inp" type="date" id="ffecha" value="${esc(T.ffecha||m.fecha||today())}"></div><div><label class="f" for="fhor">Horario (opcional)</label><input class="inp" id="fhor" maxlength="50" placeholder="de 10 a 2 pm" value="${v('fhor','horario')}"></div></div>
       <label class="f">¿Qué servicios se cortan?</label>${msvSeg()}<p class="hint">Si no se corta ninguno, déjalos sin marcar.</p>
-      <label class="f" for="fcosto">Costo (opcional)</label><div class="money"><span>$</span><input id="fcosto" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(m.costo===''||m.costo==null?'':m.costo)}"></div>
-      <label class="f" for="fprov">¿Quién hace el servicio? (opcional)</label><input class="inp" id="fprov" maxlength="80" placeholder="Nombre de la persona o empresa" value="${esc(m.proveedor||'')}">
-      <label class="f" for="ftelp">Su teléfono (opcional)</label><input class="inp" id="ftelp" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${esc(m.telProveedor||'')}"><p class="hint">Sirve para pedirle garantía después.</p>
-      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(m.nota||'')}">
+      <label class="f" for="fcosto">Costo (opcional)</label><div class="money"><span>$</span><input id="fcosto" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(T.fcosto!=null?T.fcosto:(m.costo===''||m.costo==null?'':m.costo))}"></div>
+      <label class="f" for="fprov">¿Quién hace el servicio? (opcional)</label><input class="inp" id="fprov" maxlength="80" placeholder="Nombre de la persona o empresa" value="${v('fprov','proveedor')}">
+      <label class="f" for="ftelp">Su teléfono (opcional)</label><input class="inp" id="ftelp" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${v('ftelp','telProveedor')}"><p class="hint">Sirve para pedirle garantía después.</p>
+      <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${v('fnota','nota')}">
       <div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="m-save">${I.check} Guardar</button>`);
   },
   det(){
@@ -1102,15 +1124,20 @@ const ACT={
   'm-donde'(d){F.destino=d.d;go('form')},
   'm-unit'(){go('unidad')},
   'm-serv'(d,b){const i=F.msv.indexOf(d.s);if(i>=0)F.msv.splice(i,1);else F.msv.push(d.s);b.classList.toggle('on',i<0)},
+  'm-modo'(d){F.tmp={fmot:val('fmot'),ffecha:val('ffecha'),fcosto:val('fcosto'),fprov:val('fprov'),ftelp:val('ftelp'),fnota:val('fnota'),fhor:val('fhor')};F.modo=d.n;FLOWS.mant.form()},
   'm-save'(){
     const motivo=val('fmot');if(motivo.length<3)return showErr('Escribe el motivo del mantenimiento.');
     const fecha=val('ffecha');if(!fecha)return showErr('Elige el día.');
     const cs=val('fcosto');let costo='';if(cs){const n=num(cs);if(!(n>=0)||n>10000000)return showErr('El costo no es válido.');costo=Math.round(n*100)/100}
     const tp=val('ftelp').replace(/\D/g,'');if(tp&&!telWa(tp))return showErr('El teléfono debe tener 10 dígitos.');
-    const base=F.id?get('mantenimientos',F.id):{id:uid(),estado:'programado',avisados:'',restablecido:''};
-    const r=Object.assign({},base,{destino:F.destino,motivo,fecha,horario:val('fhor'),servicios:Object.keys(SERV).filter(s=>F.msv.includes(s)).join(','),costo,proveedor:val('fprov'),telProveedor:tp?telWa(tp).slice(2):'',nota:val('fnota')});
-    const nuevo=!F.id;commit([{c:'mantenimientos',r}],nuevo?'Mantenimiento guardado':'Cambios guardados');
-    F={flow:'mant',hist:[],id:r.id,step:'det',destino:r.destino,msv:mantSv(r)};FLOWS.mant.det()},
+    const hecho=F.modo!=='plan',nuevo=!F.id;
+    const base=F.id?get('mantenimientos',F.id):{id:uid(),estado:hecho?'hecho':'programado',avisados:'',restablecido:hecho?fecha:''};
+    const r=Object.assign({},base,{destino:F.destino,motivo,fecha,costo,proveedor:val('fprov'),telProveedor:tp?telWa(tp).slice(2):'',nota:val('fnota')});
+    if(!hecho){r.horario=val('fhor');r.servicios=Object.keys(SERV).filter(s=>F.msv.includes(s)).join(',')}
+    else if(nuevo){r.horario='';r.servicios=''}
+    if(nuevo&&hecho){closeSheet();commit([{c:'mantenimientos',r}],'Mantenimiento registrado como terminado');return}
+    commit([{c:'mantenimientos',r}],nuevo?'Mantenimiento guardado':'Cambios guardados');
+    F={flow:'mant',hist:[],id:r.id,step:'det',destino:r.destino,msv:mantSv(r),modo:r.estado==='hecho'?'hecho':'plan'};FLOWS.mant.det()},
   'm-edit'(){F.hist=['det'];F.step='form';FLOWS.mant.form()},
   'm-wa'(d){const t=get('inquilinos',d.id),m=get('mantenimientos',F.id);if(!t||!m)return;const tel=telWa(t.telefono);
     if(!tel){toast('Falta el WhatsApp de '+firstName(t.nombre)+'. Agrégalo en Propiedades.',null,true);return}
