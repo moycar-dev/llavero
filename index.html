@@ -97,6 +97,15 @@ section{margin-bottom:32px}
 .it span{display:block;font-size:16px;color:var(--muted)}
 .item .btn.xb{padding:6px 10px;min-width:46px;color:var(--muted);background:transparent;border-color:transparent;margin-left:-6px}
 .resum{margin-top:12px;font-size:17px;line-height:1.5;color:var(--ink)}
+.act.a-gasto{grid-column:1/-1}
+.strip{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sbox{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px;border-radius:var(--r);background:var(--soft);border:0;text-align:left;font:inherit;color:var(--ink);cursor:pointer;min-height:92px}
+.sbox .k{font-size:15px;color:var(--muted);font-weight:600}
+.sbox b{font-size:26px;line-height:1.15}
+.sbox .s{font-size:15px;color:var(--muted)}
+.sbox.warn{background:var(--oro-l)}.sbox.warn b{color:var(--oro-t)}
+.sbox.ok{background:var(--verde-l)}.sbox.ok b{color:var(--verde)}
+.sbox:active{filter:brightness(.97)}
 .gtit{font-size:17px;margin:14px 2px 8px;color:var(--ink)}
 .opt.sel{border-color:var(--oro);background:var(--oro-l)}
 .item .btn{flex:none;min-height:46px;padding:6px 16px;font-size:17px}
@@ -348,7 +357,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.8', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.9', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -1036,7 +1045,9 @@ function abrirWA(t,etapa,registrar){
 const ACT={
   close:closeSheet,back,
   undo(){const u=window._undo;window._undo=null;$('#toastBox').innerHTML='';if(u)u()},
-  tab(d){TAB=d.t;render();$('#main').scrollTop=0},
+  tab(d){TAB=d.t;if(!d.keep)PFIL=false;render();$('#main').scrollTop=0},
+  pfil(){PFIL=true;ACT.tab({t:'props',keep:1})},
+  'pfil-off'(){PFIL=false;render()},
   ajustes(){F={flow:'aj',hist:[]};ajustes()},
   dia(){F={flow:'dia',hist:[]};diaSheet()},
   gasto(d){startFlow('gasto',Object.assign(d.s?{s:d.s}:{},d.id?{pid:d.id}:{}))},
@@ -1270,7 +1281,7 @@ const _back=back;
 function conectar(u,k,n){S.conn={u,k};S.deviceName=n.slice(0,40);S.status='none';S.err=null;save();closeSheet();render();toast('Conectando…');sync(true)}
 
 /* ---------- Vistas ---------- */
-let TAB='inicio',HF='todo',HP='todo',HV='',HPR='todo',HOPEN=false,HLIM=60,RMES=addMonths(curMonth(),0);
+let PFIL=false,TAB='inicio',HF='todo',HP='todo',HV='',HPR='todo',HOPEN=false,HLIM=60,RMES=addMonths(curMonth(),0);
 function renderStatus(){
   const el=$('#status');if(!el)return;
   let cls='',txt='',btn='';
@@ -1308,6 +1319,7 @@ function render(){
 }
 
 function itemKey(x,M){switch(x.k){case'salida':return's|'+x.t.id+'|'+x.t.fechaBaja;case'contrato':return'c|'+x.t.id+'|'+x.t.fechaFin;case'predial':return'p|'+x.r.id+'|'+x.r.predialFecha;case'mant':return'm|'+x.m.id+'|'+x.m.fecha;case'aviso':return'a|'+x.t.id+'|'+x.st.etapa+'|'+x.st.mes;default:return'r|'+x.s+'|'+M}}
+function cobranza(){let n=0,monto=0;for(const t of activos()){const st=estadoRenta(t);if(st&&st.dias<=0){n++;monto+= +t.renta||0}}return{n,monto}}
 function tuDia(){
   const items=[],M=curMonth(),hoy=today();
   for(const t of (canWA()?activos():[])){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
@@ -1373,8 +1385,10 @@ const VIEWS={
     }
     const it=tuDia(),pend=it.filter(x=>!x.done).length;
     h+=`<section><button class="dia" data-a="dia"><span class="ic">${I.clock}</span><span class="it"><b>Tu día</b><span>${pend?pend+(pend===1?' cosa por hacer':' cosas por hacer'):'Todo al día'}</span></span>${pend?`<span class="badge" aria-label="${pend} pendientes">${pend}</span>`:`<span class="ic done">${I.check}</span>`}</button></section>`;
+    {const cb=cobranza(),lib=props.filter(p=>!inqDe(p.id)).length;
+      h+=`<section><div class="strip"><button class="sbox${cb.n?' warn':' ok'}" data-a="pago"><span class="k">Por cobrar</span><b>${cb.n?money(cb.monto):'Al corriente'}</b><span class="s">${cb.n?cb.n+' inquilino'+(cb.n===1?'':'s'):'Nadie debe renta'}</span></button><button class="sbox" data-a="pfil"><span class="k">Desocupadas</span><b>${lib}</b><span class="s">de ${props.length} propiedad${props.length===1?'':'es'}</span></button></div></section>`}
     h+=`<section><div class="sh"><h2>¿Qué quieres registrar?</h2></div><div class="acts">
-      <button class="act a-gasto" data-a="gasto"><span class="ic">${I.bolt}</span><span>Recibo</span></button>
+      <button class="act a-gasto" data-a="gasto"><span class="ic">${I.bolt}</span><span>Subir recibo<small>Luz, agua, gas, internet</small></span></button>
       <button class="act a-pago" data-a="pago"><span class="ic">${I.cash}</span><span>Pago de renta</span></button>
       <button class="act a-alta" data-a="alta"><span class="ic">${I.userPlus}</span><span>Nuevo inquilino</span></button>
       <button class="act a-baja" data-a="baja"><span class="ic">${I.userMinus}</span><span>Dar de baja</span></button>
@@ -1387,6 +1401,7 @@ const VIEWS={
     const ps=propsOrd();const occ=ps.filter(p=>inqDe(p.id)).length;
     const card=p=>{const t=inqDe(p.id);const st=t?estadoRenta(t):null;
       return`<button class="pcard" data-a="pdet" data-id="${p.id}"><div class="ph"><span class="ptype">${esc(p.tipo)}${p.interior?' · Int. '+esc(p.interior):''}</span>${t?'<span class="chip info">Rentada</span>':'<span class="chip off">Desocupada</span>'}</div><div class="pn">${esc(p.nombre)}</div>${p.notas?`<div class="pt" style="font-style:italic">${esc(p.notas)}</div>`:''}<div class="pt">${t?esc(t.nombre)+' · '+money(t.renta)+' al mes':'Sin inquilino · renta sugerida '+money(p.renta)}</div>${t?`<div class="ps">${chipRenta(st)}${chipContrato(t)}</div>`:''}${invDe(p.id,'en').length?`<div class="small muted" style="margin-top:8px">${invDe(p.id,'en').length} en inventario</div>`:''}</button>`};
+    if(PFIL){const lib=ps.filter(p=>!inqDe(p.id));return`<section><div class="sh"><h2>Desocupadas (${lib.length})</h2><button class="btn sm" data-a="pfil-off">Ver todas</button></div>`+(lib.length?'<div class="plist">'+lib.map(card).join('')+'</div>':'<div class="card empty"><p class="muted">No hay propiedades desocupadas.</p></div>')+'</section>'}
     const predios=list('predios').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
     const solos=ps.filter(p=>!p.predioId||!get('predios',p.predioId));
     let h=`<section><div class="sh"><h2>Tus propiedades</h2><span class="cnt">${occ} de ${ps.length} rentadas</span></div>`;
