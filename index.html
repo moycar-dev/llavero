@@ -106,6 +106,7 @@ section{margin-bottom:32px}
 .sbox.warn{background:var(--oro-l)}.sbox.warn b{color:var(--oro-t)}
 .sbox.ok{background:var(--verde-l)}.sbox.ok b{color:var(--verde)}
 .sbox:active{filter:brightness(.97)}
+.item.sig{background:var(--azul-l);border-radius:14px;padding-left:10px;padding-right:10px}
 .gtit{font-size:17px;margin:14px 2px 8px;color:var(--ink)}
 .opt.sel{border-color:var(--oro);background:var(--oro-l)}
 .item .btn{flex:none;min-height:46px;padding:6px 16px;font-size:17px}
@@ -357,7 +358,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.10', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.11', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -752,6 +753,24 @@ FLOWS.gasto={
 function loteSig(ids,mes){F.lote=[...new Set((F.lote||[]).concat(ids))];F.mes=mes;F.pid=null;F.sel=[];F.multi=false;F.exId=null;F.nuevo=false;F.okRaro=null;F.hist=[];F.step='prop';FLOWS.gasto.prop()}
 function repPartes(m,n,rep){if(rep==='igual')return Array(n).fill(m);const c=Math.round(m/n*100)/100,a=Array(n).fill(c);a[0]=Math.round((m-c*(n-1))*100)/100;return a}
 function updRep(){const h=document.getElementById('frep');if(!h)return;const ids=F.sel||[],m=num(val('fmonto'));if(!(m>0)){h.textContent='';return}if(F.rep==='uno'){h.textContent=`Se anota ${money(m)} una sola vez, para: `+ids.map(recName).join(' + ')+'.';return}const ps=repPartes(m,ids.length,F.rep);h.textContent=F.rep==='igual'?`Se anota ${money(m)} en cada uno (${money(m*ids.length)} en total).`:`Total ${money(m)}: `+ids.map((i,k)=>recName(i)+' '+money(ps[k])).join(' · ')}
+/* Avisar a los de hoy: cola de recordatorios de renta (solo propietario; cada mensaje va al chat de esa persona) */
+FLOWS.avisos={
+  start(){if(!canWA())return closeSheet();F.step='lista';this.lista()},
+  lista(keep){
+    if(!canWA())return closeSheet();
+    const el=document.querySelector('#sheet .sheet'),sc=keep&&el?el.scrollTop:0;
+    const its=tuDia().filter(x=>x.k==='aviso'),pend=its.filter(x=>!x.done),sig=pend.find(x=>telWa(x.t.telefono));
+    const row=x=>{const p=prop(x.t.propiedadId)||{},nm=esc(firstName(x.t.nombre)),late=x.st.dias<0;
+      const when=late?'Atrasado '+(-x.st.dias)+' día'+(x.st.dias===-1?'':'s'):x.st.dias===0?'Vence hoy':'Vence en '+x.st.dias+' día'+(x.st.dias===1?'':'s');
+      const sub=`${esc(p.nombre||'')} · ${money(x.t.renta)} · ${when}`;
+      if(x.done)return`<div class="item done-t"><div class="ic done">${I.check}</div><div class="it"><b>${nm} ya tiene su aviso</b><span>${sub}</span></div><button class="btn sm" data-a="pago" data-id="${x.t.id}">${I.cash} Pagó</button></div>`;
+      if(!telWa(x.t.telefono))return`<div class="item"><div class="ic late">${I.alert}</div><div class="it"><b>${nm}</b><span>${sub} · Falta su WhatsApp</span></div></div>`;
+      const es=sig&&sig.t.id===x.t.id;
+      return`<div class="item${es?' sig':''}"><div class="ic ${late?'late':'wait'}">${late?I.alert:I.clock}</div><div class="it"><b>${es?'Sigue: ':''}${nm}</b><span>${sub}</span></div><button class="btn sm wa" data-a="wa" data-id="${x.t.id}" data-e="${x.st.etapa}">${I.chat} Avisar</button></div>`};
+    sheet(shead('Avisar a los de hoy',`<span class="chip off">${its.length-pend.length} de ${its.length} avisados</span>`)+`<div class="prog" style="margin:0 2px 8px"><i style="width:${its.length?Math.round((its.length-pend.length)/its.length*100):100}%"></i></div>`+(its.length?its.map(row).join(''):'<p class="muted">Nadie tiene aviso pendiente por hoy.</p>')+`<p class="hint">Cada botón abre el WhatsApp de esa persona con su mensaje listo (nombre, propiedad, monto y fecha). Tú solo das enviar y regresas aquí para seguir con el siguiente.</p>`);
+    if(keep){const e=document.querySelector('#sheet .sheet');if(e)e.scrollTop=sc}
+  }
+};
 /* Pago */
 FLOWS.pago={
   start(){F.step=F.tid?'monto':'quien';this[F.step]()},
@@ -1127,6 +1146,7 @@ const ACT={
     const notas=((t.notas?t.notas+' | ':'')+lin).slice(-300);
     closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:fin,renta:nueva,notas})}],'Contrato renovado hasta el '+fechaLarga(fin)+(cambio?' · renta '+money(nueva):''))},
   'pred-pag'(d){const r=get(d.c,d.id);if(!r)return;const nueva=addYear(r.predialFecha);closeSheet();commit([{c:d.c,r:Object.assign({},r,{predialFecha:nueva,predialPagado:today()})}],'Predial anotado. Próximo vencimiento: '+fechaCompleta(nueva))},
+  'avisos-cola'(){if(canWA())startFlow('avisos',{})},
   desc(d){S.desc=S.desc||{};S.desc[d.k]=1;save();diaSheet(true);render()},
   'desc-reset'(){S.desc={};save();diaSheet(true);render()},
   editpredio(d){startFlow('predio',{id:d.id})},
@@ -1320,6 +1340,7 @@ function render(){
   $('#main').innerHTML='<div class="in"><div class="status" id="status"></div>'+v()+'</div>';
   renderStatus();renderNav();
   if(F&&F.flow==='dia'&&!$('#sheet').hidden)diaSheet(true);
+  if(F&&F.flow==='avisos'&&!$('#sheet').hidden)FLOWS.avisos.lista(true);
 }
 
 function itemKey(x,M){switch(x.k){case'salida':return's|'+x.t.id+'|'+x.t.fechaBaja;case'contrato':return'c|'+x.t.id+'|'+x.t.fechaFin;case'predial':return'p|'+x.r.id+'|'+x.r.predialFecha;case'mant':return'm|'+x.m.id+'|'+x.m.fecha;case'aviso':return'a|'+x.t.id+'|'+x.st.etapa+'|'+x.st.mes;default:return'r|'+x.s+'|'+M}}
@@ -1344,7 +1365,7 @@ function tuDia(){
 function diaSheet(keep){
   const el=$('#sheet .sheet');const sc=keep&&el?el.scrollTop:0;
   const it=tuDia(),done=it.filter(x=>x.done).length;
-  sheet(shead('Tu día',`<span class="chip off">${done} de ${it.length} listos</span>`)+`<div class="prog" style="margin:0 2px 8px"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div>`+(it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>')+(S.nDesc?`<div class="sep"></div><button class="btn sm" data-a="desc-reset">Volver a mostrar ${S.nDesc} quitado${S.nDesc>1?'s':''}</button>`:''));
+  sheet(shead('Tu día',`<span class="chip off">${done} de ${it.length} listos</span>`)+`<div class="prog" style="margin:0 2px 8px"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div>`+(canWA()&&it.filter(x=>x.k==='aviso'&&!x.done).length?`<button class="btn wa full" data-a="avisos-cola" style="margin-bottom:8px">${I.chat} Avisar a los de hoy (${it.filter(x=>x.k==='aviso'&&!x.done).length})</button>`:'')+(it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>')+(S.nDesc?`<div class="sep"></div><button class="btn sm" data-a="desc-reset">Volver a mostrar ${S.nDesc} quitado${S.nDesc>1?'s':''}</button>`:''));
   if(keep){const e=$('#sheet .sheet');if(e)e.scrollTop=sc}
 }
 function itemHtml(x){const h=itemHtml0(x);const i=h.lastIndexOf('</div>');return h.slice(0,i)+`<button class="btn sm xb" data-a="desc" data-k="${esc(x.key||'')}" aria-label="Quitar este aviso">${I.x}</button>`+h.slice(i)}
