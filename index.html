@@ -357,7 +357,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.9', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.10', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -787,7 +787,9 @@ FLOWS.alta={
   prop(){
     const ps=propsOrd();
     if(!ps.length){sheet(shead('Primero agrega una propiedad')+`<button class="btn pri big full" data-a="newprop">${I.plus} Agregar propiedad</button>`);return}
-    sheet(shead('¿En qué propiedad va a vivir?')+'<div class="opts">'+ps.map(p=>{const t=inqDe(p.id);return`<button class="opt" data-a="a-prop" data-id="${p.id}"><span class="ic s-inq">${I.home}</span><span class="it">${esc(p.nombre)}<span>${t?'Hoy la renta '+esc(t.nombre):'Desocupada'}</span></span>${t?'<span class="chip warn">Ocupada</span>':'<span class="chip ok">Libre</span>'}</button>`}).join('')+'</div>');
+    const row=p=>{const t=inqDe(p.id);return`<button class="opt" data-a="a-prop" data-id="${p.id}"><span class="ic s-inq">${I.home}</span><span class="it">${esc(p.nombre)}<span>${t?'Hoy la renta '+esc(t.nombre):'Desocupada'}</span></span>${t?'<span class="chip warn">Ocupada</span>':'<span class="chip ok">Libre</span>'}</button>`};
+    const lib=ps.filter(p=>!inqDe(p.id)),oc=ps.filter(p=>inqDe(p.id));
+    sheet(shead('¿En qué propiedad va a vivir?')+(lib.length?`<h3 class="gtit">Libres (${lib.length})</h3><div class="opts">${lib.map(row).join('')}</div>`:'<p class="muted">No hay propiedades libres. Si eliges una ocupada, el inquilino actual se dará de baja.</p>')+(oc.length?`<details class="more"${lib.length?'':' open'}><summary class="btn sm">Ocupadas (${oc.length})</summary><div class="opts" style="margin-top:10px">${oc.map(row).join('')}</div></details>`:''));
   },
   datos(){
     const p=prop(F.pid),d=F.d||{};
@@ -800,8 +802,9 @@ FLOWS.alta={
       <div><label class="f" for="fdia">Paga cada día</label><select class="inp" id="fdia">${diaOptions(d.diaPago||p.diaPago||Number(today().slice(8)))}</select></div></div>
       <div class="box" style="margin-top:16px"><h3>Contrato</h3>
         <label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(ini)}">
-        <label class="f">¿Cuánto dura?</label><div class="seg">${[['6','6 meses'],['12','1 año'],['24','2 años'],['otra','Otra fecha'],['ind','Sin fecha de fin']].map(([n,t])=>`<button class="btn sm${F.dur===n?' on':''}" data-a="a-dur" data-n="${n}">${t}</button>`).join('')}</div>
-        <label class="f" for="ffin">Termina el</label><input class="inp" type="date" id="ffin" value="${esc(fin)}"${F.dur==='ind'?' disabled':''}>
+        <label class="f">¿El contrato tiene fecha de fin?</label><div class="seg"><button class="btn sm${F.dur!=='ind'?' on':''}" data-a="a-cfin" data-n="si">Sí, tiene fecha de fin</button><button class="btn sm${F.dur==='ind'?' on':''}" data-a="a-cfin" data-n="no">No, sin fecha de fin</button></div>
+        ${F.dur==='ind'?'':`<label class="f">¿Cuánto dura?</label><div class="seg">${[['6','6 meses'],['12','1 año'],['24','2 años'],['otra','Otra fecha']].map(([n,t])=>`<button class="btn sm${F.dur===n?' on':''}" data-a="a-dur" data-n="${n}">${t}</button>`).join('')}</div>
+        <label class="f" for="ffin">Termina el</label><input class="inp" type="date" id="ffin" value="${esc(fin)}">`}
         <p class="hint" id="fhint">${finHint(ini,fin,F.dur)}</p>
       </div>
       <div class="err" id="ferr" hidden></div>
@@ -1096,6 +1099,7 @@ const ACT={
     const r={id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,mes:val('fmes')||(st?st.mes:curMonth()),fecha:val('ffecha')||today(),monto:m,nota:val('fnota')};
     commit([{c:'pagos',r}],'Pago de '+firstName(t.nombre)+' guardado');F={flow:'pago',hist:[],tid:t.id,pg:r,step:'ok'};FLOWS.pago.ok()},
   'a-prop'(d){F.pid=d.id;go('datos')},
+  'a-cfin'(d){const g=id=>{const e=document.getElementById(id);return e?e.value.trim():''};F.d=Object.assign({},F.d||{},{nombre:g('fnom'),telefono:g('ftel'),renta:g('fren'),diaPago:Number(g('fdia'))||undefined,fechaInicio:g('fini')||today(),fechaFin:'',notas:g('fnota')});if(d.n==='no'){F.durPrev=F.dur&&F.dur!=='ind'?F.dur:'12';F.dur='ind'}else F.dur=F.durPrev||'12';FLOWS.alta.datos()},
   'a-dur'(d,b){F.dur=d.n;document.querySelectorAll('[data-a="a-dur"]').forEach(x=>x.classList.toggle('on',x===b));const e=document.getElementById('ffin');if(!e)return;if(d.n==='ind'){e.value='';e.disabled=true}else{e.disabled=false;if(d.n!=='otra')e.value=addMesesFecha(val('fini')||today(),Number(d.n));else e.focus()}updFinHint()},
   'a-next'(){const nombre=val('fnom'),tel=val('ftel').replace(/\D/g,''),renta=num(val('fren'));
     if(nombre.length<2)return showErr('Escribe el nombre del inquilino.');
@@ -1104,7 +1108,7 @@ const ACT={
     const ini=val('fini')||today(),fin=val('ffin');
     if(!fin&&F.dur!=='ind')return showErr('Pon la fecha en que termina el contrato o elige «Sin fecha de fin».');
     if(fin&&fin<=ini)return showErr('El contrato debe terminar después de su fecha de inicio.');
-    F.d={nombre,telefono:tel.length===10?tel:tel.slice(-10),renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:F.dur==='ind'?'':fin,notas:val('fnota')};go('conf')},
+    F.d={nombre,telefono:tel.length===10?tel:tel.slice(-10),renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:F.dur==='ind'?'':fin,notas:val('fnota')};if(!inqDe(F.pid)){ACT['a-save']();return}go('conf')},
   'a-chk'(){go('chk')},
   'a-save'(){const d=F.d,old=inqDe(F.pid),ops=[];let bad=0;
     if(old){const inv=invDe(F.pid,'en');if(inv.length){const r=chkRevisar(old,inv,d.fechaInicio);if(r.err)return showErr(r.err);bad=r.bad;ops.push(r.op)}}
