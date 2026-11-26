@@ -95,6 +95,9 @@ section{margin-bottom:32px}
 .it{flex:1;min-width:0}
 .it b{display:block;font-size:19px;font-weight:600}
 .it span{display:block;font-size:16px;color:var(--muted)}
+.item .btn.xb{padding:6px 10px;min-width:46px;color:var(--muted);background:transparent;border-color:transparent;margin-left:-6px}
+.resum{margin-top:12px;font-size:17px;line-height:1.5;color:var(--ink)}
+.opt.sel{border-color:var(--oro);background:var(--oro-l)}
 .item .btn{flex:none;min-height:46px;padding:6px 16px;font-size:17px}
 .item .btn svg{width:20px;height:20px}
 .item{align-items:flex-start}
@@ -344,7 +347,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.6.2', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.0', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -439,6 +442,8 @@ function fechaCompleta(f){return f?fechaLarga(f)+' de '+f.slice(0,4):''}
 function addMesesFecha(f,n){const[y,m,d]=f.split('-').map(Number);const t=y*12+(m-1)+n;const yy=Math.floor(t/12),mm=t%12+1;return yy+'-'+String(mm).padStart(2,'0')+'-'+String(Math.min(d,dim(yy,mm))).padStart(2,'0')}
 function addDays(f,n){return new Date(Date.parse(f+'T00:00:00Z')+n*864e5).toISOString().slice(0,10)}
 function addYear(f){const[y,m,d]=f.split('-');return (Number(y)+1)+'-'+m+'-'+(m==='02'&&d==='29'?'28':d)}
+function finHint(ini,fin,dur){if(dur==='ind'||!fin)return'Sin fecha de fin: no te va a avisar de vencimientos.';if(fin<=ini)return'La fecha de fin debe ser después del inicio.';if(fin<today())return'Esa fecha de fin ya pasó, así que el contrato aparecerá como vencido. Si el inquilino sigue y el contrato ya se renovó, pon la fecha de fin vigente con «Otra fecha» o elige «Sin fecha de fin».';return'Termina el '+fechaCompleta(fin)+'.'}
+function updFinHint(){const h=document.getElementById('fhint');if(h)h.textContent=finHint(val('fini')||today(),val('ffin'),F&&F.dur)}
 function chipContrato(t){if(!t||!t.fechaFin)return'';const d=dayDiff(today(),t.fechaFin);if(d<0)return'<span class="chip bad">Contrato vencido</span>';if(d<=60)return`<span class="chip warn">Contrato vence en ${dd(d)}</span>`;return`<span class="chip off">Contrato hasta el ${fechaLarga(t.fechaFin)}</span>`}
 function chipPredial(r){if(!r||!r.predialFecha)return'';const d=dayDiff(today(),r.predialFecha);if(d<0)return'<span class="chip bad">Predial vencido</span>';if(d<=30)return`<span class="chip warn">Predial vence en ${dd(d)}</span>`;return`<span class="chip off">Predial: ${fechaLarga(r.predialFecha)}</span>`}
 function predioDe(p){return p&&p.predioId?get('predios',p.predioId):null}
@@ -678,14 +683,28 @@ FLOWS.gasto={
   start(){F.step=F.s&&F.pid?'monto':F.s?'prop':'serv';this[F.step]()},
   serv(){const ss=Object.keys(SERV).filter(s=>recTargets(s).some(t=>!F.pid||t.id===F.pid));if(!ss.length){sheet(shead('No hay recibos por registrar')+'<p class="muted">Ninguna propiedad ni edificio tiene servicios activos. Actívalos al editar la propiedad o el edificio.</p>');return}sheet(shead('¿Qué recibo vas a registrar?')+'<div class="opts">'+ss.map(s=>`<button class="opt ${s}" data-a="g-serv" data-s="${s}"><span class="ic s-${s}">${I[SERV[s].i]}</span><span class="it">${SERV[s].n}</span></button>`).join('')+'</div>')},
   prop(){
-    const M=F.mes||curMonth();const ps=recTargets(F.s);
+    const M=F.mes||curMonth();const ps=recTargets(F.s),multi=!!F.multi,sel=F.sel||[];
     if(!ps.length){sheet(shead('No hay propiedades con '+SERV[F.s].n)+'<p class="muted">Agrega una propiedad o activa este servicio en sus datos.</p>');return}
     const g=pid=>list('gastos').find(x=>x.propiedadId===pid&&x.servicio===F.s&&x.mes===M);
     ps.sort((a,b)=>(recCubierto(a.id,F.s,M)?1:0)-(recCubierto(b.id,F.s,M)?1:0));
-    sheet(shead('¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+'<div class="opts">'+ps.map(p=>{const x=g(p.id),cu=recCubierto(p.id,F.s,M);return`<button class="opt" data-a="g-prop" data-id="${p.id}"><span class="ic ${cu?'done':'s-'+F.s}">${cu?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+' · tocar para corregir':cu?'Al corriente ('+FREQ_TXT[F.s]+') · tocar para agregar otro':FREQ[F.s]===0?'Registra cuando llegue el recibo':'Falta registrar'}</span></span></button>`}).join('')+'</div>');
+    const el=document.querySelector('#sheet .sheet'),sc=el?el.scrollTop:0;
+    sheet(shead(multi?'¿Qué edificios comparten el recibo?':'¿De qué propiedad?',servBadge(F.s)+`<span class="chip off">${mesLargo(M)}</span>`)+(multi?'<p class="hint" style="margin:0 2px 8px">Toca todos los que van en el mismo recibo.</p>':(ps.length>1?`<button class="btn sm" data-a="g-multi" style="margin-bottom:10px">${I.plus} Un recibo para varios juntos</button>`:''))+'<div class="opts">'+ps.map(p=>{const x=g(p.id),cu=recCubierto(p.id,F.s,M),on=sel.includes(p.id);return`<button class="opt${multi&&on?' sel':''}" data-a="g-prop" data-id="${p.id}"><span class="ic ${multi?(on?'done':'s-'+F.s):cu?'done':'s-'+F.s}">${(multi?on:cu)?I.check:I.home}</span><span class="it">${esc(p.nombre)}<span>${x?'Ya anotado: '+money(x.monto)+(multi?'':' · tocar para corregir'):cu?'Al corriente ('+FREQ_TXT[F.s]+')'+(multi?'':' · tocar para agregar otro'):FREQ[F.s]===0?'Registra cuando llegue el recibo':'Falta registrar'}</span></span></button>`}).join('')+'</div>'+(multi?`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="g-next">Continuar${sel.length?' ('+sel.length+')':''}</button>`:''));
+    if(multi){const e=document.querySelector('#sheet .sheet');if(e)e.scrollTop=sc}
   },
   monto(){
-    const M=F.mes||curMonth(),p={nombre:recName(F.pid)};
+    const M=F.mes||curMonth();
+    const ids=F.multi&&F.sel&&F.sel.length>1?F.sel:[F.pid];
+    if(ids.length>1){
+      F.rep=F.rep||'div';
+      sheet(shead('¿Cuánto fue el recibo?',servBadge(F.s)+ids.map(i=>`<span class="chip off">${esc(recName(i))}</span>`).join(''))+moneyInp('')+`
+        <label class="f">¿Cómo se reparte entre los ${ids.length}?</label><div class="seg">${[['div','Partes iguales'],['igual','Ese monto en cada uno']].map(([n,x])=>`<button class="btn sm${F.rep===n?' on':''}" data-a="g-rep" data-n="${n}">${x}</button>`).join('')}</div>
+        <p class="hint" id="frep"></p><div class="err" id="ferr" hidden></div>
+        <details class="more"${F.mes&&F.mes!==curMonth()?' open':''}><summary class="btn sm">${I.edit} Cambiar mes o nota</summary>
+        <label class="f" for="fmes">Mes del recibo</label><select class="inp" id="fmes">${mesOptions(M,-12,1)}</select>
+        <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="120"></details>
+        <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar en los ${ids.length}</button>`);
+      updRep();return}
+    const p={nombre:recName(F.pid)};
     const ex=list('gastos').find(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===M);
     F.exId=ex?ex.id:null;
     const prev=list('gastos').filter(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes<M).sort((a,b)=>a.mes<b.mes?-1:1).slice(-6).map(x=>+x.monto);
@@ -694,9 +713,11 @@ FLOWS.gasto={
       <details class="more"${F.mes&&F.mes!==curMonth()?' open':''}><summary class="btn sm">${I.edit} Cambiar mes o nota</summary>
       <label class="f" for="fmes">Mes del recibo</label><select class="inp" id="fmes">${mesOptions(M,-12,1)}</select>
       <label class="f" for="fnota">Nota (opcional)</label><input class="inp" id="fnota" maxlength="200" value="${esc(ex?ex.nota:'')}"></details>
-      <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar</button>`);
+      <div class="sep"></div><button class="btn pri big full" data-a="g-save">${I.check} Guardar</button>${F.s&&recTargets(F.s).length>1?`<div class="sep"></div><button class="btn sm" data-a="g-multi2">${I.plus} Este recibo es de varios edificios juntos</button>`:''}`);
   }
 };
+function repPartes(m,n,rep){if(rep==='igual')return Array(n).fill(m);const c=Math.round(m/n*100)/100,a=Array(n).fill(c);a[0]=Math.round((m-c*(n-1))*100)/100;return a}
+function updRep(){const h=document.getElementById('frep');if(!h)return;const ids=F.sel||[],m=num(val('fmonto'));if(!(m>0)){h.textContent='';return}const ps=repPartes(m,ids.length,F.rep);h.textContent=F.rep==='igual'?`Se anota ${money(m)} en cada uno (${money(m*ids.length)} en total).`:`Total ${money(m)}: `+ids.map((i,k)=>recName(i)+' '+money(ps[k])).join(' · ')}
 /* Pago */
 FLOWS.pago={
   start(){F.step=F.tid?'monto':'quien';this[F.step]()},
@@ -734,7 +755,7 @@ FLOWS.alta={
   datos(){
     const p=prop(F.pid),d=F.d||{};
     const ini=d.fechaInicio||today();F.dur=F.dur||'12';
-    const fin=d.fechaFin||(F.dur!=='otra'?addMesesFecha(ini,Number(F.dur)):'');
+    const fin=d.fechaFin||(F.dur==='otra'||F.dur==='ind'?'':addMesesFecha(ini,Number(F.dur)));
     sheet(shead('Datos del inquilino',`<span class="chip off">${esc(p.nombre)}</span>`)+`
       <label class="f" for="fnom">Nombre completo</label><input class="inp" id="fnom" maxlength="80" autocomplete="off" value="${esc(d.nombre||'')}" data-focus>
       <label class="f" for="ftel">WhatsApp (10 dígitos)</label><input class="inp" id="ftel" inputmode="tel" maxlength="16" placeholder="477 123 4567" value="${esc(d.telefono||'')}">
@@ -742,8 +763,9 @@ FLOWS.alta={
       <div><label class="f" for="fdia">Paga cada día</label><select class="inp" id="fdia">${diaOptions(d.diaPago||p.diaPago||Number(today().slice(8)))}</select></div></div>
       <div class="box" style="margin-top:16px"><h3>Contrato</h3>
         <label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(ini)}">
-        <label class="f">¿Cuánto dura?</label><div class="seg">${[['6','6 meses'],['12','1 año'],['24','2 años'],['otra','Otra fecha']].map(([n,t])=>`<button class="btn sm${F.dur===n?' on':''}" data-a="a-dur" data-n="${n}">${t}</button>`).join('')}</div>
-        <label class="f" for="ffin">Termina el</label><input class="inp" type="date" id="ffin" value="${esc(fin)}">
+        <label class="f">¿Cuánto dura?</label><div class="seg">${[['6','6 meses'],['12','1 año'],['24','2 años'],['otra','Otra fecha'],['ind','Sin fecha de fin']].map(([n,t])=>`<button class="btn sm${F.dur===n?' on':''}" data-a="a-dur" data-n="${n}">${t}</button>`).join('')}</div>
+        <label class="f" for="ffin">Termina el</label><input class="inp" type="date" id="ffin" value="${esc(fin)}"${F.dur==='ind'?' disabled':''}>
+        <p class="hint" id="fhint">${finHint(ini,fin,F.dur)}</p>
       </div>
       <div class="err" id="ferr" hidden></div>
       <details class="more"><summary class="btn sm">${I.edit} Agregar una nota</summary>
@@ -752,7 +774,7 @@ FLOWS.alta={
   },
   conf(){
     const p=prop(F.pid),old=inqDe(F.pid),d=F.d;
-    sheet(shead('¿Registramos a '+esc(firstName(d.nombre))+'?')+`<div class="box"><h3>${esc(d.nombre)}</h3><div class="muted">${esc(p.nombre)} · ${money(d.renta)} al mes · paga el día ${d.diaPago}</div><div class="muted">Contrato: del ${fechaCompleta(d.fechaInicio)} al ${fechaCompleta(d.fechaFin)}</div></div>
+    sheet(shead('¿Registramos a '+esc(firstName(d.nombre))+'?')+`<div class="box"><h3>${esc(d.nombre)}</h3><div class="muted">${esc(p.nombre)} · ${money(d.renta)} al mes · paga el día ${d.diaPago}</div><div class="muted">Contrato: ${d.fechaFin?'del '+fechaCompleta(d.fechaInicio)+' al '+fechaCompleta(d.fechaFin):'desde el '+fechaCompleta(d.fechaInicio)+', sin fecha de fin'}</div>${d.fechaFin&&d.fechaFin<today()?'<div class="small" style="color:var(--oro-t);margin-top:6px">Ojo: esa fecha de fin ya pasó y el contrato aparecerá como vencido.</div>':''}</div>
       ${old?`<div class="box" style="border-color:var(--oro-b);background:var(--oro-l)"><h3>${I.alert} ${esc(old.nombre)} se dará de baja</h3><div>Hoy aparece como inquilino de ${esc(p.nombre)}. Quedará en el historial con salida el ${fechaLarga(d.fechaInicio)}.</div></div>`:''}
       ${old&&invDe(F.pid,'en').length?`<p class="muted">Antes de registrar al nuevo inquilino, revisa el inventario que entrega ${esc(firstName(old.nombre))}.</p><button class="btn pri big full" data-a="a-chk">${I.list} Continuar: revisar inventario (${invDe(F.pid,'en').length})</button>`:`<button class="btn pri big full" data-a="a-save">${I.check} Sí, registrar</button>`}`);
   },
@@ -830,10 +852,29 @@ FLOWS.predio={
   form(){const d=get('predios',F.id);sheet(shead('Datos del edificio')+`<label class="f" for="fenom">Nombre del edificio</label><input class="inp" id="fenom" maxlength="50" value="${esc(d.nombre)}"><label class="f" for="fedir">Dirección (opcional)</label><input class="inp" id="fedir" maxlength="120" value="${esc(d.direccion)}"><label class="f">Servicios incluidos en la renta</label><p class="hint">Los paga el propietario. El recibo se registra una sola vez, en el edificio (botón «Recibo del edificio»).</p>${incSeg()}`+(isOwner()?predialInputs(d):'')+`<div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="pd-save">${I.check} Guardar</button>`)}
 };
 FLOWS.renov={
-  start(){F.step='dur';this.dur()},
-  dur(){const t=get('inquilinos',F.tid);sheet(shead('¿Por cuánto tiempo se renueva?',`<span class="chip info">${esc(t.nombre)}</span><span class="chip off">${t.fechaFin?'Termina el '+fechaCompleta(t.fechaFin):'Sin fecha de fin'}</span>`)+'<div class="opts">'+[['6','6 meses'],['12','1 año'],['24','2 años']].map(([n,tx])=>`<button class="opt" data-a="rn-dur" data-n="${n}"><span class="ic s-inq">${I.refresh}</span><span class="it">${tx}</span></button>`).join('')+`<button class="opt" data-a="rn-otra"><span class="ic s-inq">${I.edit}</span><span class="it">Otra fecha</span></button></div>`)},
-  otra(){sheet(shead('¿Hasta cuándo?')+`<label class="f" for="ffin">Nueva fecha de fin</label><input class="inp" type="date" id="ffin" data-focus><div class="err" id="ferr" hidden></div><div class="sep"></div><button class="btn pri big full" data-a="rn-ok">${I.check} Guardar</button>`)}
+  start(){F.step='form';F.dur='12';F.au='no';this.form()},
+  form(){
+    const t=get('inquilinos',F.tid),hoy=today();
+    const ini=t.fechaFin&&t.fechaFin>hoy?t.fechaFin:hoy;
+    sheet(shead('Renovar contrato',`<span class="chip info">${esc(t.nombre)}</span><span class="chip off">${t.fechaFin?(t.fechaFin<hoy?'Venció el ':'Termina el ')+fechaCompleta(t.fechaFin):'Sin fecha de fin'}</span>`)+`
+      <label class="f">¿Cuánto dura la nueva vigencia?</label><div class="seg">${[['6','6 meses'],['12','1 año'],['24','2 años'],['otra','Otra fecha']].map(([n,x])=>`<button class="btn sm${F.dur===n?' on':''}" data-a="rn-dur" data-n="${n}">${x}</button>`).join('')}</div>
+      <label class="f" for="fvini">Empieza el</label><input class="inp" type="date" id="fvini" value="${esc(ini)}">
+      <label class="f" for="ffin">Termina el</label><input class="inp" type="date" id="ffin" value="${esc(addMesesFecha(ini,12))}">
+      <div class="box" style="margin-top:16px"><h3>¿Hay aumento de renta?</h3>
+        <div class="seg">${[['no','Sin aumento'],['pct','Aumento en %'],['mon','Aumento en $']].map(([n,x])=>`<button class="btn sm${F.au===n?' on':''}" data-a="rn-au" data-n="${n}">${x}</button>`).join('')}</div>
+        <div id="faubox" hidden><label class="f" for="fau" id="faul">Porcentaje de aumento</label><input class="inp" id="fau" inputmode="decimal" autocomplete="off"></div>
+        <div class="resum" id="fsum"></div></div>
+      <div class="err" id="ferr" hidden></div>
+      <div class="sep"></div><button class="btn pri big full" data-a="rn-ok">${I.check} Renovar contrato</button>`);
+    updRen();
+  }
 };
+function renCalc(){const t=get('inquilinos',F.tid);if(!t)return null;const a=F.au,v=num(val('fau')||0);let n=Number(t.renta);if(a==='pct'&&v>=0)n=n*(1+v/100);else if(a==='mon'&&v>=0)n=n+v;return Math.round(n*100)/100}
+function updRen(){const t=get('inquilinos',F&&F.tid);const s=document.getElementById('fsum');if(!t||!s)return;const nueva=renCalc(),ini=val('fvini'),fin=val('ffin');
+  const meses=ini&&fin&&fin>ini?Math.round(dayDiff(ini,fin)/30.4375):0;
+  let h=nueva!==Number(t.renta)?`Renta actual ${money(t.renta)} → <b>nueva renta ${money(nueva)} al mes</b> (+${money(nueva-t.renta)})`:`<b>Renta ${money(t.renta)} al mes</b>, sin cambio`;
+  if(meses>0)h+=`<br>Vigencia de unos ${meses} meses: <b>${money(nueva*meses)}</b> en total`;
+  s.innerHTML=h}
 /* Comentario sobre un cambio */
 FLOWS.coment={
   start(){F.step='form';this.form()},
@@ -926,7 +967,7 @@ FLOWS.edit={
     let h='';
     if(F.c==='gastos'){h=`<div class="ctx">${servBadge(r.servicio)}<span class="chip off">${esc(recName(r.propiedadId))}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,1)}</select><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
     else if(F.c==='pagos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="ctx"><span class="chip info">${esc(t.nombre||'')}</span></div>`+moneyInp(r.monto)+`<label class="f" for="fmes">Mes que paga</label><select class="inp" id="fmes">${mesOptions(r.mes,-12,3)}</select><label class="f" for="ffecha">Fecha</label><input class="inp" type="date" id="ffecha" value="${esc(r.fecha)}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="200" value="${esc(r.nota)}">`}
-    else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
+    else if(F.c==='inquilinos'){h=`<label class="f" for="fnom">Nombre</label><input class="inp" id="fnom" maxlength="80" value="${esc(r.nombre)}"><label class="f" for="ftel">WhatsApp</label><input class="inp" id="ftel" inputmode="tel" value="${esc(r.telefono)}"><div class="two"><div><label class="f" for="fren">Renta</label><input class="inp" id="fren" inputmode="decimal" value="${esc(r.renta)}"></div><div><label class="f" for="fdia">Día de pago</label><select class="inp" id="fdia">${diaOptions(r.diaPago)}</select></div></div><label class="f" for="fini">Inicio del contrato</label><input class="inp" type="date" id="fini" value="${esc(r.fechaInicio||'')}"><label class="f" for="ffin">Fin del contrato</label><input class="inp" type="date" id="ffin" value="${esc(r.fechaFin||'')}"><p class="hint">Déjalo vacío si el contrato no tiene fecha de fin.</p><label class="f" for="fbaja">Fecha de baja</label><input class="inp" type="date" id="fbaja" value="${esc(r.fechaBaja||'')}"><p class="hint">${r.estado==='baja'?'Día en que salió.':'Déjala vacía mientras siga viviendo ahí. Si la pones, pasa al historial y la propiedad queda libre (para revisar el inventario usa «Dar de baja»).'}</p><label class="f" for="fnota">Nota</label><input class="inp" id="fnota" maxlength="300" value="${esc(r.notas)}">`}
     else if(F.c==='revisiones'){const t=get('inquilinos',r.inquilinoId)||S.data.inquilinos[r.inquilinoId]||{};const pr=prop(r.propiedadId)||{};h=`<div class="box"><h3>Revisión de inventario</h3><div class="muted">${esc(pr.nombre||'')} · salida de ${esc(t.nombre||'')} · ${fechaLarga(r.fecha)}</div>${resItems(r.resultado)}${r.nota?`<p class="muted small">${esc(r.nota)}</p>`:''}</div>`}
     else if(F.c==='avisos'){const t=get('inquilinos',r.inquilinoId)||{};h=`<div class="box"><h3>Aviso a ${esc(t.nombre||'')}</h3><div class="muted">${ETAPA_TXT[r.etapa]} · ${mesLargo(r.mes)} · enviado el ${fechaLarga(r.fecha)}</div></div>`}
     const editable=!['avisos','revisiones'].includes(F.c);
@@ -967,8 +1008,17 @@ const ACT={
   'dpd-ok'(){const d=get('predios',F.id);const us=list('propiedades').filter(p=>p.predioId===F.id);if(us.some(p=>inqDe(p.id)))return;const did=F.id;closeSheet();OPENB&&OPENB.delete(did);commit([{c:'predios',r:Object.assign({},d,{eliminado:1})}].concat(us.map(p=>({c:'propiedades',r:Object.assign({},p,{eliminado:1})}))),'Edificio borrado')},
   'dp-ok'(){const p=prop(F.id);closeSheet();commit([{c:'propiedades',r:Object.assign({},p,{eliminado:1})}],'Propiedad borrada')},
   'g-serv'(d){F.s=d.s;go(F.pid?'monto':'prop')},
-  'g-prop'(d){F.pid=d.id;go('monto')},
+  'g-prop'(d){if(F.multi){F.sel=F.sel||[];const i=F.sel.indexOf(d.id);if(i>=0)F.sel.splice(i,1);else F.sel.push(d.id);FLOWS.gasto.prop();return}F.pid=d.id;go('monto')},
+  'g-multi'(){F.multi=true;F.sel=[];FLOWS.gasto.prop()},
+  'g-multi2'(){F.multi=true;F.sel=[F.pid];go('prop')},
+  'g-next'(){const s=F.sel||[];if(!s.length)return showErr('Toca al menos un edificio.');F.pid=s[0];if(s.length===1)F.multi=false;go('monto')},
+  'g-rep'(d,b){F.rep=d.n;document.querySelectorAll('[data-a="g-rep"]').forEach(x=>x.classList.toggle('on',x===b));updRep()},
   'g-save'(){const m=parseMonto();if(m==null)return;const mes=val('fmes')||curMonth();
+    if(F.multi&&F.sel&&F.sel.length>1){const ids=F.sel,ps=repPartes(m,ids.length,F.rep),nt=val('fnota'),ops=[];
+      ids.forEach((id,k)=>{const ex=list('gastos').find(x=>x.propiedadId===id&&x.servicio===F.s&&x.mes===mes);
+        const nota=('Recibo compartido de '+ids.length+' edificios'+(F.rep==='igual'?'':' (total '+money(m)+')')+(nt?' · '+nt:'')).slice(0,200);
+        ops.push({c:'gastos',r:ex?Object.assign({},ex,{monto:ps[k],nota}):{id:uid(),propiedadId:id,servicio:F.s,mes,monto:ps[k],nota}})});
+      closeSheet();commit(ops,'Listo, el recibo quedó en los '+ids.length+' edificios');return}
     const ex=list('gastos').find(x=>x.propiedadId===F.pid&&x.servicio===F.s&&x.mes===mes);
     const r=ex?Object.assign({},ex,{monto:m,nota:val('fnota')}):{id:uid(),propiedadId:F.pid,servicio:F.s,mes,monto:m,nota:val('fnota')};
     closeSheet();commit([{c:'gastos',r}],'Listo, quedó guardado')},
@@ -977,15 +1027,15 @@ const ACT={
     const r={id:uid(),inquilinoId:t.id,propiedadId:t.propiedadId,mes:val('fmes')||(st?st.mes:curMonth()),fecha:val('ffecha')||today(),monto:m,nota:val('fnota')};
     commit([{c:'pagos',r}],'Pago de '+firstName(t.nombre)+' guardado');F={flow:'pago',hist:[],tid:t.id,pg:r,step:'ok'};FLOWS.pago.ok()},
   'a-prop'(d){F.pid=d.id;go('datos')},
-  'a-dur'(d,b){F.dur=d.n;document.querySelectorAll('[data-a="a-dur"]').forEach(x=>x.classList.toggle('on',x===b));const e=document.getElementById('ffin');if(!e)return;if(d.n!=='otra')e.value=addMesesFecha(val('fini')||today(),Number(d.n));else e.focus()},
+  'a-dur'(d,b){F.dur=d.n;document.querySelectorAll('[data-a="a-dur"]').forEach(x=>x.classList.toggle('on',x===b));const e=document.getElementById('ffin');if(!e)return;if(d.n==='ind'){e.value='';e.disabled=true}else{e.disabled=false;if(d.n!=='otra')e.value=addMesesFecha(val('fini')||today(),Number(d.n));else e.focus()}updFinHint()},
   'a-next'(){const nombre=val('fnom'),tel=val('ftel').replace(/\D/g,''),renta=num(val('fren'));
     if(nombre.length<2)return showErr('Escribe el nombre del inquilino.');
     if(tel&&!telWa(tel))return showErr('El WhatsApp debe tener 10 dígitos.');
     if(!(renta>0))return showErr('Escribe la renta mensual.');
     const ini=val('fini')||today(),fin=val('ffin');
-    if(!fin)return showErr('Pon la fecha en que termina el contrato.');
-    if(fin<=ini)return showErr('El contrato debe terminar después de su fecha de inicio.');
-    F.d={nombre,telefono:tel.length===10?tel:tel.slice(-10),renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:fin,notas:val('fnota')};go('conf')},
+    if(!fin&&F.dur!=='ind')return showErr('Pon la fecha en que termina el contrato o elige «Sin fecha de fin».');
+    if(fin&&fin<=ini)return showErr('El contrato debe terminar después de su fecha de inicio.');
+    F.d={nombre,telefono:tel.length===10?tel:tel.slice(-10),renta:Math.round(renta*100)/100,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:F.dur==='ind'?'':fin,notas:val('fnota')};go('conf')},
   'a-chk'(){go('chk')},
   'a-save'(){const d=F.d,old=inqDe(F.pid),ops=[];let bad=0;
     if(old){const inv=invDe(F.pid,'en');if(inv.length){const r=chkRevisar(old,inv,d.fechaInicio);if(r.err)return showErr(r.err);bad=r.bad;ops.push(r.op)}}
@@ -993,10 +1043,19 @@ const ACT={
     ops.push({c:'inquilinos',r:Object.assign({id:uid(),propiedadId:F.pid,estado:'activo',fechaBaja:''},d)});
     closeSheet();commit(ops,firstName(d.nombre)+' quedó registrado'+(bad?' · '+bad+' artículo'+(bad>1?'s':'')+' con observaciones':''))},
   renov(d){startFlow('renov',{tid:d.id})},
-  'rn-dur'(d){const t=get('inquilinos',F.tid);const hoy=today();const base=t.fechaFin&&t.fechaFin>hoy?t.fechaFin:hoy;const fin=addMesesFecha(base,Number(d.n));closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:fin})}],'Contrato renovado hasta el '+fechaLarga(fin))},
-  'rn-otra'(){go('otra')},
-  'rn-ok'(){const f=val('ffin');if(!f)return showErr('Elige la fecha.');if(f<=today())return showErr('La fecha debe ser futura.');const t=get('inquilinos',F.tid);closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:f})}],'Contrato renovado hasta el '+fechaLarga(f))},
+  'rn-au'(d,b){F.au=d.n;document.querySelectorAll('[data-a="rn-au"]').forEach(x=>x.classList.toggle('on',x===b));const bx=document.getElementById('faubox');if(bx){bx.hidden=d.n==='no';const l=document.getElementById('faul');if(l)l.textContent=d.n==='pct'?'Porcentaje de aumento':'Cuánto aumenta al mes ($)';if(d.n!=='no')document.getElementById('fau').focus()}updRen()},
+  'rn-dur'(d,b){F.dur=d.n;document.querySelectorAll('[data-a="rn-dur"]').forEach(x=>x.classList.toggle('on',x===b));const e=document.getElementById('ffin');if(!e)return;if(d.n!=='otra')e.value=addMesesFecha(val('fvini')||today(),Number(d.n));else e.focus();updRen()},
+  'rn-ok'(){const t=get('inquilinos',F.tid);if(!t)return closeSheet();const ini=val('fvini'),fin=val('ffin');
+    if(!ini)return showErr('Pon cuándo empieza la nueva vigencia.');if(!fin)return showErr('Pon la fecha en que termina.');
+    if(fin<=ini)return showErr('La vigencia debe terminar después de su inicio.');if(fin<=today())return showErr('La fecha de fin debe ser futura.');
+    if(F.au!=='no'){const v=num(val('fau'));if(!(v>0))return showErr('Escribe cuánto aumenta o elige «Sin aumento».');if(F.au==='pct'&&v>100)return showErr('Ese porcentaje parece muy alto.')}
+    const nueva=renCalc(),cambio=nueva!==Number(t.renta);
+    const lin='Renovado '+today()+': '+ini+' a '+fin+(cambio?', renta '+t.renta+' a '+nueva:'');
+    const notas=((t.notas?t.notas+' | ':'')+lin).slice(-300);
+    closeSheet();commit([{c:'inquilinos',r:Object.assign({},t,{fechaFin:fin,renta:nueva,notas})}],'Contrato renovado hasta el '+fechaLarga(fin)+(cambio?' · renta '+money(nueva):''))},
   'pred-pag'(d){const r=get(d.c,d.id);if(!r)return;const nueva=addYear(r.predialFecha);closeSheet();commit([{c:d.c,r:Object.assign({},r,{predialFecha:nueva,predialPagado:today()})}],'Predial anotado. Próximo vencimiento: '+fechaCompleta(nueva))},
+  desc(d){S.desc=S.desc||{};S.desc[d.k]=1;save();diaSheet(true);render()},
+  'desc-reset'(){S.desc={};save();diaSheet(true);render()},
   editpredio(d){startFlow('predio',{id:d.id})},
   addunit(d){startFlow('prop',{predioId:d.id})},
   'pd-save'(){const nombre=val('fenom');if(nombre.length<2)return showErr('Escribe el nombre del edificio.');const x=isOwner()?leerPredial():{};if(x.err)return showErr(x.err);const r=Object.assign({},get('predios',F.id),{nombre,direccion:val('fedir'),incluidos:Object.keys(SERV).filter(s=>F.inc.includes(s)).join(',')},x);closeSheet();commit([{c:'predios',r}],'Edificio guardado')},
@@ -1094,8 +1153,15 @@ const ACT={
     if(F.c==='gastos'||F.c==='pagos'){const m=parseMonto();if(m==null)return;r.monto=m;r.mes=val('fmes');r.nota=val('fnota');if(F.c==='pagos')r.fecha=val('ffecha')||r.fecha;
       if(F.c==='gastos'){const dup=list('gastos').find(x=>x.id!==r.id&&x.propiedadId===r.propiedadId&&x.servicio===r.servicio&&x.mes===r.mes);if(dup)return showErr('Ya hay un recibo de ese mes. Corrige ese en su lugar.')}}
     else if(F.c==='inquilinos'){const tel=val('ftel').replace(/\D/g,'');if(val('fnom').length<2)return showErr('Escribe el nombre.');if(tel&&!telWa(tel))return showErr('El WhatsApp debe tener 10 dígitos.');const rn=num(val('fren'));if(!(rn>0))return showErr('Renta no válida.');
-      Object.assign(r,{nombre:val('fnom'),telefono:tel.slice(-10),renta:rn,diaPago:Number(val('fdia')),fechaFin:val('ffin')||r.fechaFin||'',notas:val('fnota')})}
-    closeSheet();commit([{c:F.c,r}],'Cambios guardados')},
+      const ini=val('fini'),fin=val('ffin'),baja=val('fbaja');
+      if(!ini)return showErr('Pon la fecha de inicio del contrato.');
+      if(fin&&fin<=ini)return showErr('El contrato debe terminar después de su inicio.');
+      if(r.estado==='baja'){if(!baja)return showErr('Pon la fecha de baja.')}
+      if(baja&&baja<ini)return showErr('La baja no puede ser antes del inicio del contrato.');
+      if(r.estado==='activo'&&baja&&baja>today())return showErr('La fecha de baja no puede ser futura. Usa «Dar de baja» el día que salga.');
+      Object.assign(r,{nombre:val('fnom'),telefono:tel.slice(-10),renta:rn,diaPago:Number(val('fdia')),fechaInicio:ini,fechaFin:fin,fechaBaja:baja,notas:val('fnota')});
+      if(r.estado==='activo'&&baja)r.estado='baja'}
+    const cc=F.c;closeSheet();commit([{c:cc,r}],'Cambios guardados')},
   'e-del'(){go('del')},
   'e-delok'(){const r=get(F.c,F.id);const c=F.c;closeSheet();commit([{c,r:Object.assign({},r,{eliminado:1})}],'Registro borrado')},
   filt(d){HF=d.f;HLIM=60;render()},
@@ -1179,10 +1245,11 @@ function render(){
   if(F&&F.flow==='dia'&&!$('#sheet').hidden)diaSheet(true);
 }
 
+function itemKey(x,M){switch(x.k){case'contrato':return'c|'+x.t.id+'|'+x.t.fechaFin;case'predial':return'p|'+x.r.id+'|'+x.r.predialFecha;case'mant':return'm|'+x.m.id+'|'+x.m.fecha;case'aviso':return'a|'+x.t.id+'|'+x.st.etapa+'|'+x.st.mes;default:return'r|'+x.s+'|'+M}}
 function tuDia(){
   const items=[],M=curMonth(),hoy=today();
   for(const t of (canWA()?activos():[])){const st=estadoRenta(t);if(!st||!st.etapa)continue;const av=avisoDe(t,st);items.push({k:'aviso',t,st,done:!!av,av})}
-  for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60)items.push({k:'contrato',t,dias,done:false})}
+  for(const t of activos()){if(!t.fechaFin)continue;const dias=dayDiff(hoy,t.fechaFin);if(dias<=60&&dias>=-30)items.push({k:'contrato',t,dias,done:false})}
   if(isOwner()){
     const addP=(c,r)=>{if(!r.predialFecha)return;const dias=dayDiff(hoy,r.predialFecha);if(dias<=30)items.push({k:'predial',c,r,n:r.nombre,dias,done:false})};
     list('predios').forEach(r=>addP('predios',r));list('propiedades').forEach(r=>addP('propiedades',r));
@@ -1190,16 +1257,19 @@ function tuDia(){
   for(const m of list('mantenimientos')){if(m.estado==='hecho')continue;const dias=dayDiff(hoy,m.fecha);if(dias<=3)items.push({k:'mant',m,dias,done:false})}
   const props=list('propiedades'),gs=list('gastos');
   for(const s of Object.keys(SERV)){if(!FREQ[s])continue;const ps=recTargets(s);if(!ps.length)continue;const n=ps.filter(p=>recCubierto(p.id,s,M)).length;items.push({k:'recibo',s,n,total:ps.length,done:n===ps.length})}
-  const dg=x=>x.k==='aviso'?x.st.dias:x.dias!=null?x.dias:500;items.sort((a,b)=>(a.done-b.done)||(dg(a)-dg(b)));
+  const dg=x=>x.k==='aviso'?x.st.dias:x.dias!=null?x.dias:500;
+  const D=S.desc||{};const out=items.filter(x=>{x.key=itemKey(x,M);return !D[x.key]});S.nDesc=items.length-out.length;items.length=0;out.forEach(x=>items.push(x));
+  items.sort((a,b)=>(a.done-b.done)||(dg(a)-dg(b)));
   return items;
 }
 function diaSheet(keep){
   const el=$('#sheet .sheet');const sc=keep&&el?el.scrollTop:0;
   const it=tuDia(),done=it.filter(x=>x.done).length;
-  sheet(shead('Tu día',`<span class="chip off">${done} de ${it.length} listos</span>`)+`<div class="prog" style="margin:0 2px 8px"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div>`+(it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>'));
+  sheet(shead('Tu día',`<span class="chip off">${done} de ${it.length} listos</span>`)+`<div class="prog" style="margin:0 2px 8px"><i style="width:${it.length?Math.round(done/it.length*100):100}%"></i></div>`+(it.length?it.map(itemHtml).join(''):'<p class="muted">Nada pendiente por hoy.</p>')+(S.nDesc?`<div class="sep"></div><button class="btn sm" data-a="desc-reset">Volver a mostrar ${S.nDesc} quitado${S.nDesc>1?'s':''}</button>`:''));
   if(keep){const e=$('#sheet .sheet');if(e)e.scrollTop=sc}
 }
-function itemHtml(x){
+function itemHtml(x){const h=itemHtml0(x);const i=h.lastIndexOf('</div>');return h.slice(0,i)+`<button class="btn sm xb" data-a="desc" data-k="${esc(x.key||'')}" aria-label="Quitar este aviso">${I.x}</button>`+h.slice(i)}
+function itemHtml0(x){
   if(x.k==='predial'){const late=x.dias<0;const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.r.predialFecha)+')';
     return`<div class="item"><div class="ic ${late?'late':'wait'}">${I.home}</div><div class="it"><b>Predial de ${esc(x.n)}</b><span>${x.r.predialMonto?money(x.r.predialMonto)+' · ':''}${when}</span></div><button class="btn sm" data-a="pred-pag" data-c="${x.c}" data-id="${x.r.id}">${I.check} Ya pagué</button></div>`}
   if(x.k==='contrato'){const late=x.dias<0;const p=prop(x.t.propiedadId)||{};const when=late?'Venció hace '+dd(-x.dias):x.dias===0?'Vence hoy':'Vence en '+dd(x.dias)+' ('+fechaLarga(x.t.fechaFin)+')';
@@ -1456,7 +1526,11 @@ document.addEventListener('change',e=>{
   if(c==='hp'){HP=e.target.value;HLIM=60;const b=feed();const ms=[...new Set(b.map(x=>x.m).filter(Boolean))].sort().reverse();HV=HP==='dia'?today():HP==='mes'?(ms.includes(curMonth())?curMonth():ms[0]||''):HP==='anio'?(ms[0]||'').slice(0,4):'';render();return}
   if(c==='hv'){HV=e.target.value;HLIM=60;render();return}
   if(c==='hpr'){HPR=e.target.value;HLIM=60;render();return}
-if(e.target.id==='fini'&&F&&F.flow==='alta'&&F.dur&&F.dur!=='otra'&&e.target.value){const f=document.getElementById('ffin');if(f)f.value=addMesesFecha(e.target.value,Number(F.dur))}});
+if(e.target.id==='fini'&&F&&F.flow==='alta'&&F.dur&&F.dur!=='otra'&&F.dur!=='ind'&&e.target.value){const f=document.getElementById('ffin');if(f)f.value=addMesesFecha(e.target.value,Number(F.dur))}
+  if((e.target.id==='fini'||e.target.id==='ffin')&&F&&F.flow==='alta')updFinHint();
+  if(e.target.id==='fvini'&&F&&F.flow==='renov'&&F.dur!=='otra'){const f=document.getElementById('ffin');if(f&&e.target.value)f.value=addMesesFecha(e.target.value,Number(F.dur));updRen()}
+  if(e.target.id==='ffin'&&F&&F.flow==='renov')updRen()});
+document.addEventListener('input',e=>{if(e.target.id==='fau'&&F&&F.flow==='renov')updRen();if(e.target.id==='fmonto'&&F&&F.flow==='gasto'&&F.multi)updRep()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();sync()}});
 setInterval(()=>{if(!document.hidden)sync()},60000);
 setInterval(renderHeader,30000);
