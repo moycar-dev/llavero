@@ -347,7 +347,7 @@ main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 <script>
 'use strict';
-const VER='1.7.3', TZ='America/Mexico_City', LSK='trazacasa:v1';
+const VER='1.7.4', TZ='America/Mexico_City', LSK='trazacasa:v1';
 const DEMO=new URLSearchParams(location.search).has('demo');
 const COLS={
   predios:['nombre','direccion','predialMonto','predialFecha','predialClave','predialPagado','notas','incluidos'],
@@ -1408,11 +1408,11 @@ function pdet(id){
     h+=`<div class="box"><div class="ph"><h3>Inventario</h3><span class="chip off">${inv.length} artículo${inv.length===1?'':'s'}</span></div>`+(inv.length?inv.map(row).join(''):'<p class="muted">Aún no hay nada anotado. Agrega la TV, la cama, el closet…</p>')+`<div class="sep" style="height:10px"></div><button class="btn full" data-a="invadd" data-id="${id}">${I.plus} Agregar artículo</button>`+(ret.length?`<details class="more"><summary class="btn sm">Retirados (${ret.length})</summary>${ret.map(row).join('')}</details>`:'')+(rv?`<div class="sep" style="height:10px"></div><button class="btn sm" data-a="edit" data-c="revisiones" data-id="${rv.id}">${I.list} Última revisión al salir un inquilino · ${fechaLarga(rv.fecha)}</button>`:'')+'</div>'}
   {const mts=list('mantenimientos').filter(m=>mantProps(m).some(x=>x.id===id)).sort((a,b)=>a.fecha<b.fecha?1:-1).slice(0,3);
     h+=`<div class="box"><div class="ph"><h3>Mantenimientos</h3></div>`+(mts.length?mts.map(m=>`<button class="li" data-a="mdet" data-id="${m.id}"><span class="ic s-mant">${I.wrench}</span><span class="it"><b>${esc(m.motivo)}</b><span>${fechaLarga(m.fecha)} · ${m.estado==='hecho'?'terminado':'pendiente'}</span></span><span class="amt">${m.costo!==''&&m.costo!=null?money(m.costo):''}</span></button>`).join(''):'<p class="muted">Sin mantenimientos registrados.</p>')+`<div class="sep" style="height:10px"></div><button class="btn full" data-a="mant-p" data-id="${id}">${I.plus} Registrar mantenimiento</button></div>`}
-  const gs=list('gastos').filter(g=>g.propiedadId===id);
+  const gs=list('gastos').filter(g=>g.propiedadId===id||grpIds(g).includes(id));
   const meses=[...new Set(gs.map(g=>g.mes))].sort().slice(-4);
   if(meses.length){
     const sv=Object.keys(SERV).filter(s=>isTarget(p,s));
-    h+=`<div class="box"><h3>Recibos recientes</h3><table><tr><th>Mes</th>${sv.map(s=>`<th>${SERV[s].n}</th>`).join('')}</tr>${meses.reverse().map(m=>`<tr><td style="text-transform:capitalize">${mesCorto(m)} ${m.slice(2,4)}</td>${sv.map(s=>{const gg=gs.filter(x=>x.mes===m&&x.servicio===s);return`<td>${gg.length?money(gg.reduce((a,x)=>a+ +x.monto,0)):'—'}</td>`}).join('')}</tr>`).join('')}</table></div>`;
+    h+=`<div class="box"><h3>Recibos recientes</h3><table><tr><th>Mes</th>${sv.map(s=>`<th>${SERV[s].n}</th>`).join('')}</tr>${meses.reverse().map(m=>`<tr><td style="text-transform:capitalize">${mesCorto(m)} ${m.slice(2,4)}</td>${sv.map(s=>{const gg=gs.filter(x=>x.mes===m&&x.servicio===s);return`<td>${gg.length?money(gg.reduce((a,x)=>a+ +x.monto,0)):'—'}${gg.some(x=>grpIds(x).length)?'<div class="small muted">compartido</div>':''}</td>`}).join('')}</tr>`).join('')}</table></div>`;
   }
   const prev=list('inquilinos').filter(x=>x.propiedadId===id&&x.estado!=='activo').sort((a,b)=>a.fechaBaja<b.fechaBaja?1:-1);
   if(prev.length)h+=`<div class="box"><h3>Inquilinos anteriores</h3>${prev.map(x=>`<div class="small" style="padding:4px 0">${esc(x.nombre)} · ${fechaLarga(x.fechaInicio)} ${x.fechaInicio.slice(0,4)} – ${fechaLarga(x.fechaBaja)} ${String(x.fechaBaja).slice(0,4)}</div>`).join('')}</div>`;
